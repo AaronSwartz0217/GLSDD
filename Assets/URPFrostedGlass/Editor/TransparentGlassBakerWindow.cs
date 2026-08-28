@@ -132,8 +132,10 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         clamped.y = Mathf.Clamp(clamped.y, workspace.y + 12, workspace.yMax - clamped.height - 12);
         glassRect = clamped;
 
-        int previewWidth = Mathf.Clamp(Mathf.RoundToInt(glassRect.width * 1.5f), 64, 1200);
-        int previewHeight = Mathf.Clamp(Mathf.RoundToInt(previewWidth * outputHeight / (float)outputWidth), 64, 900);
+        // The cached preview resolution follows output aspect only. Dragging the
+        // frame merely stretches the texture, keeping edge resizing responsive.
+        int previewWidth = outputWidth >= outputHeight ? 384 : Mathf.Max(64, Mathf.RoundToInt(384f * outputWidth / outputHeight));
+        int previewHeight = outputWidth >= outputHeight ? Mathf.Max(64, Mathf.RoundToInt(384f * outputHeight / outputWidth)) : 384;
         if (previewDirty || preview == null || preview.width != previewWidth || preview.height != previewHeight)
         {
             if (preview != null)
@@ -200,7 +202,6 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                 next.xMax = Mathf.Min(workspace.xMax - 8, next.xMax);
                 next.yMax = Mathf.Min(workspace.yMax - 8, next.yMax);
                 glassRect = next;
-                previewDirty = true;
             }
             e.Use();
             Repaint();

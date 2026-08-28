@@ -37,12 +37,6 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         RefreshPreview();
     }
 
-    void OnRectTransformDimensionsChange()
-    {
-        if (isActiveAndEnabled)
-            RefreshPreview();
-    }
-
     public void SyncOutputAspectFromRect()
     {
         Rect rect = ((RectTransform)transform).rect;
@@ -59,10 +53,12 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         if (image == null)
             return;
 
-        Rect rect = ((RectTransform)transform).rect;
-        float aspect = Mathf.Max(0.05f, rect.width / Mathf.Max(1f, rect.height));
-        int width = aspect >= 1f ? 512 : Mathf.Max(64, Mathf.RoundToInt(512 * aspect));
-        int height = aspect >= 1f ? Mathf.Max(64, Mathf.RoundToInt(512 / aspect)) : 512;
+        // Keep preview resolution independent from RectTransform size. Resizing the
+        // rectangle now stretches this cached preview instead of rerasterizing it
+        // every mouse event. Full resolution is only used by the final bake.
+        float aspect = Mathf.Max(0.05f, outputWidth / (float)Mathf.Max(1, outputHeight));
+        int width = aspect >= 1f ? 256 : Mathf.Max(48, Mathf.RoundToInt(256 * aspect));
+        int height = aspect >= 1f ? Mathf.Max(48, Mathf.RoundToInt(256 / aspect)) : 256;
 
         if (previewSprite != null)
             DestroyImmediate(previewSprite);
