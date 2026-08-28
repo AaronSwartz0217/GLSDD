@@ -243,12 +243,14 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
 
     void BakeAndSave()
     {
+        const string bakedFolder = "Assets/SHADER/URPFrostedGlass/Baked";
+        EnsureAssetFolder(bakedFolder);
         string path = EditorUtility.SaveFilePanelInProject(
             "保存透明毛玻璃 PNG",
             "TransparentGlassPanel",
             "png",
             "请选择 Assets 内的保存位置",
-            "Assets/SHADER/URPFrostedGlass");
+            bakedFolder);
 
         if (string.IsNullOrEmpty(path))
             return;
@@ -273,6 +275,18 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         Selection.activeObject = asset;
         EditorGUIUtility.PingObject(asset);
         Debug.Log($"Baked true-alpha glass PNG: {path} ({outputWidth}x{outputHeight})");
+    }
+
+    static void EnsureAssetFolder(string path)
+    {
+        string current = "Assets";
+        foreach (string part in path.Substring("Assets/".Length).Split('/'))
+        {
+            string next = current + "/" + part;
+            if (!AssetDatabase.IsValidFolder(next))
+                AssetDatabase.CreateFolder(current, part);
+            current = next;
+        }
     }
 
     Texture2D RenderGlass(int width, int height)

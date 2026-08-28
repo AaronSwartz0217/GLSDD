@@ -43,12 +43,14 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
 
     static void Bake(TransparentGlassBakeTarget settings)
     {
+        const string bakedFolder = "Assets/SHADER/URPFrostedGlass/Baked";
+        EnsureAssetFolder(bakedFolder);
         string path = EditorUtility.SaveFilePanelInProject(
             "保存透明毛玻璃 PNG",
             settings.gameObject.name,
             "png",
             "请选择 Assets 内的保存位置",
-            "Assets/SHADER/URPFrostedGlass/Baked");
+            bakedFolder);
 
         if (string.IsNullOrEmpty(path))
             return;
@@ -74,6 +76,18 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
         Selection.activeObject = asset;
         EditorGUIUtility.PingObject(asset);
         Debug.Log($"Baked transparent glass PNG: {path}");
+    }
+
+    static void EnsureAssetFolder(string path)
+    {
+        string current = "Assets";
+        foreach (string part in path.Substring("Assets/".Length).Split('/'))
+        {
+            string next = current + "/" + part;
+            if (!AssetDatabase.IsValidFolder(next))
+                AssetDatabase.CreateFolder(current, part);
+            current = next;
+        }
     }
 }
 
