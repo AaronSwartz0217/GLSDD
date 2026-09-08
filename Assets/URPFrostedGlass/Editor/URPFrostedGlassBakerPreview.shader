@@ -98,7 +98,9 @@ Shader "Hidden/URPFrostedGlass/BakerPreview"
 
                 fixed3 original = SampleBackground(backgroundUV);
                 fixed3 blurred = BlurBackground(refractedUV);
-                fixed3 processed = lerp(original, blurred, _BlurStrength);
+                float blurInput = saturate(_BlurStrength);
+                float blurMix = 1.0 - (1.0 - blurInput) * (1.0 - blurInput);
+                fixed3 processed = lerp(original, blurred, blurMix);
 
                 float2 diffractionOffset = normal * _DiffractionPixels * _BackgroundTex_TexelSize.xy * edgeWeight;
                 fixed3 redSample = SampleBackground(refractedUV + diffractionOffset);

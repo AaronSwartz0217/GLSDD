@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 
 [ExecuteAlways]
 [RequireComponent(typeof(RectTransform))]
@@ -43,6 +44,7 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
 
     void OnEnable()
     {
+        EnsureCameraColorTexture();
         EnsureCheckerboard();
         EnsureShaderPreviewBackdrop();
         RefreshPreview();
@@ -197,6 +199,19 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         rawImage.texture = checkerTexture;
         rawImage.uvRect = new Rect(0, 0, 18, 32);
         rawImage.color = Color.white;
+    }
+
+    void EnsureCameraColorTexture()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        Camera camera = canvas != null ? canvas.worldCamera : null;
+        if (camera == null)
+            return;
+
+        UniversalAdditionalCameraData cameraData = camera.GetComponent<UniversalAdditionalCameraData>();
+        if (cameraData == null)
+            cameraData = camera.gameObject.AddComponent<UniversalAdditionalCameraData>();
+        cameraData.requiresColorOption = CameraOverrideOption.On;
     }
 
     void EnsureShaderPreviewBackdrop()

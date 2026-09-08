@@ -3,6 +3,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 
 public static class GlassUIBakerSceneBuilder
 {
@@ -38,13 +39,14 @@ public static class GlassUIBakerSceneBuilder
         EnsureFolder(SceneFolder);
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
 
-        GameObject cameraObject = new GameObject("Transparent Bake Camera", typeof(Camera));
+        GameObject cameraObject = new GameObject("Transparent Bake Camera", typeof(Camera), typeof(UniversalAdditionalCameraData));
         SceneManager.MoveGameObjectToScene(cameraObject, scene);
         Camera camera = cameraObject.GetComponent<Camera>();
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = new Color(0, 0, 0, 0);
         camera.orthographic = true;
         camera.transform.position = new Vector3(0, 0, -10);
+        cameraObject.GetComponent<UniversalAdditionalCameraData>().requiresColorOption = CameraOverrideOption.On;
 
         GameObject canvasObject = new GameObject("UI Bake Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         SceneManager.MoveGameObjectToScene(canvasObject, scene);

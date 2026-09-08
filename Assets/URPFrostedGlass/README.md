@@ -63,6 +63,8 @@ Unity 编译完成后，打开：
 
 Shader 效果模式使用独立 GPU 预览 Shader，按窗口实际显示分辨率每帧绘制，不再由 CPU 逐像素生成或限制刷新帧率。项目的 URP Opaque Texture Downsampling 建议设置为 `None`，否则运行时折射背景会使用半分辨率或四分之一分辨率纹理。
 
+`GlassUIBaker` 的预览相机会自动添加 `UniversalAdditionalCameraData`，并把 `Requires Color Texture` 强制设为 `On`。若在其他场景使用该材质，也必须让对应 Base Camera 生成 Opaque Texture；否则场景颜色采样为空，玻璃可能显示成黑色。
+
 `Glass PNG Baker` 窗口内也可启用 `Shader 效果预览`。预览背景可选彩色、棋盘格或任意自定义图片。`效果强度` 在内部混合原背景与折射模糊结果，不再降低最终预览 Alpha，因此移动玻璃时可以清楚看到背景被扭曲和模糊；这些效果仍不会写入透明 PNG。
 
 点击“烘焙透明 PNG”后会输出 RGBA PNG，并自动按 Unity Sprite 导入，外部区域 Alpha 为 0。

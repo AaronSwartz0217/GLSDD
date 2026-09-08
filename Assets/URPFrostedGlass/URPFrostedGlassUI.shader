@@ -205,7 +205,11 @@ Shader "UI/URP Frosted Glass Diffraction"
 
                 half3 scene = SampleSceneColor(screenUV);
                 half3 blurred = BlurScene(refractedUV, _BlurRadius);
-                half3 glass = lerp(scene, blurred, _BlurStrength);
+                // Perceptual response: low slider values remain useful while the
+                // upper half ramps more decisively toward the blurred result.
+                half blurInput = saturate(_BlurStrength);
+                half blurMix = 1.0h - (1.0h - blurInput) * (1.0h - blurInput);
+                half3 glass = lerp(scene, blurred, blurMix);
 
                 // Two extra samples provide restrained chromatic diffraction without
                 // repeating the full nine-tap blur for each RGB channel.
