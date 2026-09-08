@@ -32,7 +32,6 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     DragMode dragMode;
     Vector2 dragStart;
     Rect rectAtDragStart;
-    double nextShaderPreviewRefreshTime;
 
     int outputWidth = 1200;
     int outputHeight = 520;
@@ -62,6 +61,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     Texture2D preview;
     Texture2D previewBackdrop;
     Color32[] previewBackdropPixels;
+    Material gpuPreviewMaterial;
     bool previewBackdropDirty = true;
     bool previewDirty = true;
     Vector2 toolbarScroll;
@@ -81,6 +81,8 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
             DestroyImmediate(preview);
         if (previewBackdrop != null)
             DestroyImmediate(previewBackdrop);
+        if (gpuPreviewMaterial != null)
+            DestroyImmediate(gpuPreviewMaterial);
     }
 
     void OnGUI()
@@ -190,22 +192,27 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         clamped.y = Mathf.Clamp(clamped.y, workspace.y + 12, workspace.yMax - clamped.height - 12);
         glassRect = clamped;
 
-        // The cached preview resolution follows output aspect only. Dragging the
-        // frame merely stretches the texture, keeping edge resizing responsive.
-        int previewMaxSize = showShaderPreview ? 256 : 384;
-        int previewWidth = outputWidth >= outputHeight ? previewMaxSize : Mathf.Max(64, Mathf.RoundToInt(previewMaxSize * (float)outputWidth / outputHeight));
-        int previewHeight = outputWidth >= outputHeight ? Mathf.Max(64, Mathf.RoundToInt(previewMaxSize * (float)outputHeight / outputWidth)) : previewMaxSize;
-        if (previewDirty || preview == null || preview.width != previewWidth || preview.height != previewHeight)
+        if (showShaderPreview && DrawGpuShaderPreview(workspace))
         {
-            if (preview != null)
-                DestroyImmediate(preview);
-            preview = showShaderPreview
-                ? RenderShaderEffectPreview(previewWidth, previewHeight, workspace)
-                : RenderGlass(previewWidth, previewHeight);
-            previewDirty = false;
+            // GPU preview is evaluated at the editor window's actual display
+            // resolution every repaint, so dragging remains smooth and crisp.
         }
-
-        GUI.DrawTexture(glassRect, preview, ScaleMode.StretchToFill, true);
+        else
+        {
+            const int previewMaxSize = 384;
+            int previewWidth = outputWidth >= outputHeight ? previewMaxSize : Mathf.Max(64, Mathf.RoundToInt(previewMaxSize * (float)outputWidth / outputHeight));
+            int previewHeight = outputWidth >= outputHeight ? Mathf.Max(64, Mathf.RoundToInt(previewMaxSize * (float)outputHeight / outputWidth)) : previewMaxSize;
+            if (previewDirty || preview == null || preview.width != previewWidth || preview.height != previewHeight)
+            {
+                if (preview != null)
+                    DestroyImmediate(preview);
+                preview = showShaderPreview
+                    ? RenderShaderEffectPreview(previewWidth, previewHeight, workspace)
+                    : RenderGlass(previewWidth, previewHeight);
+                previewDirty = false;
+            }
+            GUI.DrawTexture(glassRect, preview, ScaleMode.StretchToFill, true);
+        }
         Handles.BeginGUI();
         Handles.color = new Color(0.2f, 0.72f, 1f, 0.95f);
         Handles.DrawAAPolyLine(2f,
@@ -263,11 +270,6 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                 next.xMax = Mathf.Min(workspace.xMax - 8, next.xMax);
                 next.yMax = Mathf.Min(workspace.yMax - 8, next.yMax);
                 glassRect = next;
-                if (showShaderPreview && EditorApplication.timeSinceStartup >= nextShaderPreviewRefreshTime)
-                {
-                    previewDirty = true;
-                    nextShaderPreviewRefreshTime = EditorApplication.timeSinceStartup + 0.08;
-                }
             }
             e.Use();
             Repaint();
@@ -520,6 +522,52 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         return texture;
     }
 
+    bool DrawGpuShaderPreview(Rect workspace)
+    {
+        EnsurePreviewBackdrop();
+        if (gpuPreviewMaterial == null)
+        {
+            Shader shader = Shader.Find("Hidden/URPFrostedGlass/BakerPreview");
+            if (shader == null)
+                return false;
+            gpuPreviewMaterial = new Material(shader)
+            {
+                name = "Glass Baker GPU Preview (Temporary)",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+        }
+
+        float u0 = (glassRect.xMin - workspace.x) / Mathf.Max(1f, workspace.width);
+        float v0 = 1f - (glassRect.yMax - workspace.y) / Mathf.Max(1f, workspace.height);
+        float du = glassRect.width / Mathf.Max(1f, workspace.width);
+        float dv = glassRect.height / Mathf.Max(1f, workspace.height);
+        float aspect = glassRect.width / Mathf.Max(1f, glassRect.height);
+
+        gpuPreviewMaterial.SetTexture("_BackgroundTex", previewBackdrop);
+        gpuPreviewMaterial.SetVector("_BackgroundUV", new Vector4(u0, v0, du, dv));
+        gpuPreviewMaterial.SetColor("_TintColor", tint);
+        gpuPreviewMaterial.SetFloat("_PanelAspect", aspect);
+        gpuPreviewMaterial.SetFloat("_CornerRadiusN", cornerRadius / Mathf.Max(1f, outputHeight));
+        gpuPreviewMaterial.SetFloat("_BorderWidthN", borderWidth / Mathf.Max(1f, outputHeight));
+        gpuPreviewMaterial.SetFloat("_FillOpacity", fillOpacity);
+        gpuPreviewMaterial.SetFloat("_BorderOpacity", borderOpacity);
+        gpuPreviewMaterial.SetFloat("_TopHighlight", topHighlight);
+        gpuPreviewMaterial.SetFloat("_BottomShade", bottomShade);
+        gpuPreviewMaterial.SetFloat("_GlossIntensity", glossIntensity);
+        gpuPreviewMaterial.SetFloat("_GlossWidth", glossWidth);
+        gpuPreviewMaterial.SetFloat("_GlossPosition", glossPosition);
+        gpuPreviewMaterial.SetFloat("_GlossAngle", glossAngle);
+        gpuPreviewMaterial.SetFloat("_EffectStrength", previewEffectOpacity);
+        gpuPreviewMaterial.SetFloat("_RefractionPixels", previewRefraction);
+        gpuPreviewMaterial.SetFloat("_LensStrength", previewLensStrength);
+        gpuPreviewMaterial.SetFloat("_LensPower", previewLensPower);
+        gpuPreviewMaterial.SetFloat("_DiffractionPixels", previewDiffraction);
+        gpuPreviewMaterial.SetFloat("_BlurRadiusPixels", previewBlurRadius);
+        gpuPreviewMaterial.SetFloat("_BlurStrength", previewBlurStrength);
+        Graphics.DrawTexture(glassRect, Texture2D.whiteTexture, gpuPreviewMaterial);
+        return true;
+    }
+
     Color BlurPreviewBackdrop(Vector2 uv, float radiusU, float radiusV)
     {
         Color c = SamplePreviewBackdrop(uv.x, uv.y) * 0.20f;
@@ -587,8 +635,8 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         if (previewBackdrop != null)
             DestroyImmediate(previewBackdrop);
 
-        const int width = 512;
-        const int height = 512;
+        const int width = 1024;
+        const int height = 1024;
         previewBackdrop = new Texture2D(width, height, TextureFormat.RGBA32, false, false)
         {
             name = "Glass Baker Shader Preview Backdrop",
