@@ -39,6 +39,7 @@ Shader "Hidden/URPFrostedGlass/BakerPreview"
             float _GlossAngle;
             float _EffectStrength;
             float _RefractionPixels;
+            float _RefractionEdgeWidth;
             float _LensStrength;
             float _LensPower;
             float _DiffractionPixels;
@@ -95,7 +96,7 @@ Shader "Hidden/URPFrostedGlass/BakerPreview"
 
                 float2 normal = normalize(p + float2(1e-5, 1e-5));
                 float edgeDistance = saturate(-sdf / max(_CornerRadiusN, 0.001));
-                float edgeWeight = 1.0 - smoothstep(0.05, 0.8, edgeDistance);
+                float edgeWeight = 1.0 - smoothstep(0.02, max(_RefractionEdgeWidth, 0.05), edgeDistance);
                 float2 refractionOffset = normal * _RefractionPixels * _BackgroundTex_TexelSize.xy * edgeWeight;
                 float2 refractedUV = lensUV + refractionOffset;
 

@@ -19,6 +19,13 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
             UpdateScenePreview(targetComponent);
 
         EditorGUILayout.Space(10);
+        if (GUILayout.Button("重置 Shader 预览参数", GUILayout.Height(30)))
+        {
+            Undo.RecordObject(targetComponent, "Reset Glass Shader Preview");
+            targetComponent.ResetShaderPreviewSettings();
+            EditorUtility.SetDirty(targetComponent);
+        }
+
         if (GUILayout.Button("按当前 RectTransform 同步输出比例", GUILayout.Height(30)))
         {
             Undo.RecordObject(targetComponent, "Sync Glass Bake Aspect");

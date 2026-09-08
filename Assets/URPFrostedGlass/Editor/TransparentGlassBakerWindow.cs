@@ -50,6 +50,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     bool showShaderPreview;
     float previewEffectOpacity = 0.72f;
     float previewRefraction = 2.5f;
+    float previewRefractionEdgeWidth = 0.8f;
     float previewLensStrength = 0.08f;
     float previewLensPower = 8f;
     float previewDiffraction = 0.8f;
@@ -134,8 +135,9 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
 
             previewEffectOpacity = EditorGUILayout.Slider("效果强度", previewEffectOpacity, 0, 1);
             previewRefraction = EditorGUILayout.Slider("折射", previewRefraction, 0, 12);
+            previewRefractionEdgeWidth = EditorGUILayout.Slider("折射边缘范围", previewRefractionEdgeWidth, 0.05f, 1);
             previewLensStrength = EditorGUILayout.Slider("透镜折射", previewLensStrength, 0, 0.35f);
-            previewLensPower = EditorGUILayout.Slider("透镜形状", previewLensPower, 2, 16);
+            previewLensPower = EditorGUILayout.Slider("透镜形状", previewLensPower, 2, 24);
             previewDiffraction = EditorGUILayout.Slider("RGB 色散", previewDiffraction, 0, 4);
             previewBlurRadius = EditorGUILayout.Slider("模糊半径", previewBlurRadius, 0, 16);
             previewBlurStrength = EditorGUILayout.Slider("模糊强度", previewBlurStrength, 0, 1);
@@ -143,6 +145,11 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
             previewExposure = EditorGUILayout.Slider("曝光补偿", previewExposure, 0.5f, 2);
             previewShadowLift = EditorGUILayout.Slider("暗部提升", previewShadowLift, 0, 0.25f);
             EditorGUILayout.HelpBox("这些参数只用于预览，不会写入透明 PNG。", MessageType.None);
+            if (GUILayout.Button("重置 Shader 预览参数"))
+            {
+                ResetShaderPreviewSettings();
+                previewDirty = true;
+            }
         }
         if (EditorGUI.EndChangeCheck())
             previewDirty = true;
@@ -565,6 +572,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         gpuPreviewMaterial.SetFloat("_GlossAngle", glossAngle);
         gpuPreviewMaterial.SetFloat("_EffectStrength", previewEffectOpacity);
         gpuPreviewMaterial.SetFloat("_RefractionPixels", previewRefraction);
+        gpuPreviewMaterial.SetFloat("_RefractionEdgeWidth", previewRefractionEdgeWidth);
         gpuPreviewMaterial.SetFloat("_LensStrength", previewLensStrength);
         gpuPreviewMaterial.SetFloat("_LensPower", previewLensPower);
         gpuPreviewMaterial.SetFloat("_DiffractionPixels", previewDiffraction);
@@ -575,6 +583,21 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         gpuPreviewMaterial.SetFloat("_ShadowLift", previewShadowLift);
         Graphics.DrawTexture(glassRect, Texture2D.whiteTexture, gpuPreviewMaterial);
         return true;
+    }
+
+    void ResetShaderPreviewSettings()
+    {
+        previewEffectOpacity = 0.72f;
+        previewRefraction = 2.5f;
+        previewRefractionEdgeWidth = 0.8f;
+        previewLensStrength = 0.08f;
+        previewLensPower = 8f;
+        previewDiffraction = 0.8f;
+        previewBlurRadius = 4f;
+        previewBlurStrength = 0.72f;
+        previewLuminancePreservation = 0.85f;
+        previewExposure = 1.10f;
+        previewShadowLift = 0.035f;
     }
 
     Color BlurPreviewBackdrop(Vector2 uv, float radiusU, float radiusV)

@@ -28,8 +28,9 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
     [InspectorName("Shader Effect Strength")]
     [Range(0, 1)] public float shaderEffectOpacity = 0.72f;
     [Range(0, 12)] public float shaderRefraction = 2.5f;
+    [Range(0.05f, 1)] public float shaderRefractionEdgeWidth = 0.8f;
     [Range(0, 0.35f)] public float shaderLensStrength = 0.08f;
-    [Range(2, 16)] public float shaderLensPower = 8f;
+    [Range(2, 24)] public float shaderLensPower = 8f;
     [Range(0, 4)] public float shaderDiffraction = 0.8f;
     [Range(0, 16)] public float shaderBlurRadius = 4f;
     [Range(0, 1)] public float shaderBlurStrength = 0.72f;
@@ -149,6 +150,7 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         shaderPreviewMaterial.SetFloat("_CornerRadius", cornerRadius);
         shaderPreviewMaterial.SetFloat("_BorderWidth", borderWidth);
         shaderPreviewMaterial.SetFloat("_Refraction", shaderRefraction);
+        shaderPreviewMaterial.SetFloat("_RefractionEdgeWidth", shaderRefractionEdgeWidth);
         shaderPreviewMaterial.SetFloat("_LensStrength", shaderLensStrength);
         shaderPreviewMaterial.SetFloat("_LensPower", shaderLensPower);
         shaderPreviewMaterial.SetFloat("_Diffraction", shaderDiffraction);
@@ -159,6 +161,23 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         shaderPreviewMaterial.SetFloat("_ShadowLift", shaderShadowLift);
         image.material = shaderPreviewMaterial;
         image.SetMaterialDirty();
+    }
+
+    public void ResetShaderPreviewSettings()
+    {
+        shaderEffectOpacity = 0.72f;
+        shaderRefraction = 2.5f;
+        shaderRefractionEdgeWidth = 0.8f;
+        shaderLensStrength = 0.08f;
+        shaderLensPower = 8f;
+        shaderDiffraction = 0.8f;
+        shaderBlurRadius = 4f;
+        shaderBlurStrength = 0.72f;
+        shaderLuminancePreservation = 0.85f;
+        shaderExposure = 1.10f;
+        shaderShadowLift = 0.035f;
+        RefreshPreview();
+        UpdateShaderPreview();
     }
 
     void EnsureCheckerboard()

@@ -13,8 +13,9 @@ Shader "UI/URP Frosted Glass Diffraction"
         _BorderWidth ("Border Width (Pixels)", Range(0, 12)) = 1.5
         _BorderColor ("Border Color", Color) = (1, 1, 1, 0.72)
         _Refraction ("Refraction (Pixels)", Range(0, 12)) = 2.5
+        _RefractionEdgeWidth ("Refraction Edge Width", Range(0.05, 1)) = 0.8
         _LensStrength ("Lens Refraction Strength", Range(0, 0.35)) = 0.08
-        _LensPower ("Lens Superellipse Power", Range(2, 16)) = 8
+        _LensPower ("Lens Superellipse Power", Range(2, 24)) = 8
         _Diffraction ("RGB Diffraction (Pixels)", Range(0, 4)) = 0.8
         _BlurRadius ("Blur Radius (Pixels)", Range(0, 16)) = 4
         _BlurStrength ("Blur Strength", Range(0, 1)) = 0.72
@@ -108,6 +109,7 @@ Shader "UI/URP Frosted Glass Diffraction"
                 half _Inset;
                 half _BorderWidth;
                 half _Refraction;
+                half _RefractionEdgeWidth;
                 half _LensStrength;
                 half _LensPower;
                 half _Diffraction;
@@ -205,7 +207,8 @@ Shader "UI/URP Frosted Glass Diffraction"
                 float gradientWeight = saturate(dot(abs(alphaGradient), float2(64.0, 64.0)));
                 float2 edgeNormal = normalize(-alphaGradient + float2(1e-5, 1e-5));
                 float2 refractNormal = normalize(lerp(radialNormal, edgeNormal, gradientWeight));
-                float edgeWeight = saturate(depth * 0.45 + gradientWeight);
+                float refractionBand = 1.0 - smoothstep(0.02, max(_RefractionEdgeWidth, 0.05), depth);
+                float edgeWeight = saturate(refractionBand + gradientWeight);
                 float2 refractOffset = refractNormal * (_Refraction * edgeWeight) / _ScreenParams.xy;
                 float2 refractedUV = clamp(lensUV + refractOffset, 0.001, 0.999);
 
