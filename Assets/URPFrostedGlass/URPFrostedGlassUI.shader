@@ -3,17 +3,21 @@ Shader "UI/URP Frosted Glass Diffraction"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
-        _TintColor ("Glass Tint", Color) = (0.92, 0.97, 1.0, 1.0)
-        _Opacity ("Glass Opacity", Range(0, 1)) = 0.38
+        _TintColor ("Glass Tint", Color) = (0.92, 0.97, 1.0, 0.16)
+        _Opacity ("Glass Effect Opacity", Range(0, 1)) = 0.52
+        _MaskThreshold ("PNG Alpha Mask Threshold", Range(0, 0.5)) = 0.025
+        _MaskSoftness ("PNG Alpha Mask Softness", Range(0.001, 0.25)) = 0.03
+        _SpriteOverlay ("Baked PNG Overlay", Range(0, 1)) = 0.22
         _CornerRadius ("Corner Radius (Pixels)", Range(0, 256)) = 64
         _Inset ("Edge Inset (Pixels)", Range(0, 16)) = 2
         _BorderWidth ("Border Width (Pixels)", Range(0, 12)) = 1.5
         _BorderColor ("Border Color", Color) = (1, 1, 1, 0.72)
-        _Refraction ("Refraction", Range(0, 24)) = 7
-        _Diffraction ("RGB Diffraction", Range(0, 8)) = 2.2
-        _BlurRadius ("Blur Radius", Range(0, 12)) = 3.5
-        _Brightness ("Brightness", Range(0.5, 2)) = 1.08
-        _Saturation ("Saturation", Range(0, 2)) = 1.08
+        _Refraction ("Refraction (Pixels)", Range(0, 12)) = 2.5
+        _Diffraction ("RGB Diffraction (Pixels)", Range(0, 4)) = 0.8
+        _BlurRadius ("Blur Radius (Pixels)", Range(0, 16)) = 4
+        _BlurStrength ("Blur Strength", Range(0, 1)) = 0.72
+        _Brightness ("Brightness", Range(0.5, 2)) = 1.04
+        _Saturation ("Saturation", Range(0, 2)) = 1.06
         _TopHighlight ("Top Highlight", Range(0, 1)) = 0.18
         _BottomShade ("Bottom Shade", Range(0, 1)) = 0.08
         [HideInInspector] _RectSize ("Rect Size", Vector) = (600, 240, 0, 0)
@@ -92,12 +96,16 @@ Shader "UI/URP Frosted Glass Diffraction"
                 half4 _BorderColor;
                 float4 _RectSize;
                 half _Opacity;
+                half _MaskThreshold;
+                half _MaskSoftness;
+                half _SpriteOverlay;
                 half _CornerRadius;
                 half _Inset;
                 half _BorderWidth;
                 half _Refraction;
                 half _Diffraction;
                 half _BlurRadius;
+                half _BlurStrength;
                 half _Brightness;
                 half _Saturation;
                 half _TopHighlight;
@@ -156,20 +164,42 @@ Shader "UI/URP Frosted Glass Diffraction"
                 float sdf = RoundedBoxSDF(p, halfSize, _CornerRadius);
                 float aa = max(fwidth(sdf), 0.75);
                 half inside = 1.0h - smoothstep(-aa, aa, sdf);
-                clip(inside - 0.001h);
+
+                half4 bakedSprite = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+                // The baked PNG may intentionally use a very low fill alpha. Remap
+                // that alpha into a full-strength effect mask, while retaining the
+                // original alpha separately for its border/gloss artwork.
+                half pngMask = smoothstep(
+                    max(0.0h, _MaskThreshold - _MaskSoftness),
+                    _MaskThreshold + _MaskSoftness,
+                    bakedSprite.a);
+                half effectMask = inside * pngMask;
+                clip(effectMask - 0.001h);
 
                 float2 screenUV = input.screenPos.xy / input.screenPos.w;
                 float depth = saturate(-sdf / max(_CornerRadius, 1.0));
-                float2 normal = normalize(p + float2(1e-4, 1e-4));
-                float2 refractOffset = normal * (_Refraction * depth) / _ScreenParams.xy;
-                float2 chromaOffset = normal * (_Diffraction * pow(max(depth, 1e-3), 0.15)) / _ScreenParams.xy;
+                float2 radialNormal = normalize(p + float2(1e-4, 1e-4));
+                float2 alphaGradient = float2(ddx(bakedSprite.a), ddy(bakedSprite.a));
+                float gradientWeight = saturate(dot(abs(alphaGradient), float2(64.0, 64.0)));
+                float2 edgeNormal = normalize(-alphaGradient + float2(1e-5, 1e-5));
+                float2 refractNormal = normalize(lerp(radialNormal, edgeNormal, gradientWeight));
+                float edgeWeight = saturate(depth * 0.45 + gradientWeight);
+                float2 refractOffset = refractNormal * (_Refraction * edgeWeight) / _ScreenParams.xy;
+                float2 refractedUV = clamp(screenUV + refractOffset, 0.001, 0.999);
 
-                half3 glass;
-                glass.r = BlurScene(screenUV + refractOffset + chromaOffset, _BlurRadius).r;
-                glass.g = BlurScene(screenUV + refractOffset, _BlurRadius).g;
-                glass.b = BlurScene(screenUV + refractOffset - chromaOffset, _BlurRadius).b;
+                half3 scene = SampleSceneColor(screenUV);
+                half3 blurred = BlurScene(refractedUV, _BlurRadius);
+                half3 glass = lerp(scene, blurred, _BlurStrength);
+
+                // Two extra samples provide restrained chromatic diffraction without
+                // repeating the full nine-tap blur for each RGB channel.
+                float2 chromaOffset = refractNormal * (_Diffraction * edgeWeight) / _ScreenParams.xy;
+                half shiftedR = SampleSceneColor(clamp(refractedUV + chromaOffset, 0.001, 0.999)).r;
+                half shiftedB = SampleSceneColor(clamp(refractedUV - chromaOffset, 0.001, 0.999)).b;
+                glass.r = lerp(glass.r, shiftedR, saturate(_Diffraction * 0.28h));
+                glass.b = lerp(glass.b, shiftedB, saturate(_Diffraction * 0.28h));
                 glass = AdjustSaturation(glass, _Saturation) * _Brightness;
-                glass *= _TintColor.rgb;
+                glass = lerp(glass, glass * _TintColor.rgb, _TintColor.a);
 
                 half border = 1.0h - smoothstep(_BorderWidth - aa, _BorderWidth + aa, abs(sdf));
                 half top = saturate(input.uv.y - 0.5h) * 2.0h;
@@ -179,9 +209,13 @@ Shader "UI/URP Frosted Glass Diffraction"
                 glass *= 1.0h - bottom * innerEdge * _BottomShade;
                 glass = lerp(glass, _BorderColor.rgb, border * _BorderColor.a);
 
-                half spriteAlpha = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).a;
-                half alpha = inside * spriteAlpha * input.color.a;
-                alpha *= lerp(_Opacity, 1.0h, border * _BorderColor.a);
+                // Retain the baked PNG's border/gloss artwork as a subtle overlay.
+                half artwork = saturate(bakedSprite.a * _SpriteOverlay);
+                glass = lerp(glass, bakedSprite.rgb, artwork);
+
+                half alpha = effectMask * input.color.a * _Opacity;
+                alpha = max(alpha, inside * bakedSprite.a * input.color.a * _SpriteOverlay);
+                alpha = saturate(alpha + border * _BorderColor.a * effectMask * 0.35h);
                 return half4(glass * input.color.rgb, alpha);
             }
             ENDHLSL

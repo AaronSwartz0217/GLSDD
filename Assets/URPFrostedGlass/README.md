@@ -26,6 +26,23 @@ Shader 会从 UI UV 的屏幕导数自动计算矩形像素尺寸，因此多个
 
 注意：`_CameraOpaqueTexture` 不包含透明物体。如果需要连透明物体和其他 UI 一起模糊，应改成 URP Renderer Feature，在 UI 前抓取完整颜色缓冲。
 
+## 透明 PNG 遮罩 + 实时折射模糊
+
+将烘焙器生成的透明 PNG 设置为 UI Image 的 Source Image，再给 Image 指定 `UI/URP Frosted Glass Diffraction` 材质。PNG Alpha 决定效果区域，原始透明度负责保留边框与光泽；背景模糊和折射只在运行时计算，不会写入烘焙图片。
+
+推荐轻量参数：
+
+- Glass Effect Opacity: 0.45–0.6
+- PNG Alpha Mask Threshold: 0.02–0.04
+- PNG Alpha Mask Softness: 0.02–0.05
+- Baked PNG Overlay: 0.15–0.3
+- Refraction: 1.5–3.5 px
+- RGB Diffraction: 0.4–1.0 px
+- Blur Radius: 3–6 px
+- Blur Strength: 0.6–0.8
+
+Shader 使用一次九点模糊和两次色散采样，共 11 次场景颜色采样。移动端可将 Blur Radius 调低到 2–3，并关闭或降低 RGB Diffraction。
+
 ## 可拖拽透明 PNG 烘焙器
 
 Unity 编译完成后，打开：
