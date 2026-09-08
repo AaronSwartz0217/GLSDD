@@ -178,6 +178,15 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
             previewDirty = true;
         }
 
+        EditorGUILayout.Space(8);
+        EditorGUILayout.LabelField("参数预设", EditorStyles.boldLabel);
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("保存预设", GUILayout.Height(30)))
+            GlassUIPresetIO.Save(CapturePreset(), "FrostedGlassPreset");
+        if (GUILayout.Button("读取预设", GUILayout.Height(30)) && GlassUIPresetIO.Load(out GlassUIBakerPreset preset))
+            ApplyPreset(preset);
+        EditorGUILayout.EndHorizontal();
+
         EditorGUILayout.Space(14);
         GUI.backgroundColor = new Color(0.52f, 0.82f, 1f);
         if (GUILayout.Button("烘焙透明 PNG", GUILayout.Height(44)))
@@ -597,6 +606,83 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         previewLuminancePreservation = 0.85f;
         previewExposure = 1.10f;
         previewShadowLift = 0.035f;
+    }
+
+    GlassUIBakerPreset CapturePreset()
+    {
+        return new GlassUIBakerPreset
+        {
+            outputWidth = outputWidth,
+            outputHeight = outputHeight,
+            cornerRadius = cornerRadius,
+            borderWidth = borderWidth,
+            fillOpacity = fillOpacity,
+            borderOpacity = borderOpacity,
+            topHighlight = topHighlight,
+            bottomShade = bottomShade,
+            glossIntensity = glossIntensity,
+            glossWidth = glossWidth,
+            glossPosition = glossPosition,
+            glossAngle = glossAngle,
+            tint = tint,
+            useShaderPreview = showShaderPreview,
+            shaderEffectOpacity = previewEffectOpacity,
+            shaderRefraction = previewRefraction,
+            shaderRefractionEdgeWidth = previewRefractionEdgeWidth,
+            shaderLensStrength = previewLensStrength,
+            shaderLensPower = previewLensPower,
+            shaderDiffraction = previewDiffraction,
+            shaderBlurRadius = previewBlurRadius,
+            shaderBlurStrength = previewBlurStrength,
+            shaderLuminancePreservation = previewLuminancePreservation,
+            shaderExposure = previewExposure,
+            shaderShadowLift = previewShadowLift,
+            previewBackgroundMode = (int)previewBackgroundMode,
+            customPreviewBackgroundAssetPath = AssetDatabase.GetAssetPath(customPreviewBackground)
+        };
+    }
+
+    void ApplyPreset(GlassUIBakerPreset preset)
+    {
+        if (preset == null)
+            return;
+
+        outputWidth = Mathf.Clamp(preset.outputWidth, 64, 4096);
+        outputHeight = Mathf.Clamp(preset.outputHeight, 64, 4096);
+        cornerRadius = Mathf.Clamp(preset.cornerRadius, 0, Mathf.Min(outputWidth, outputHeight) * 0.5f);
+        borderWidth = Mathf.Clamp(preset.borderWidth, 0, 24);
+        fillOpacity = Mathf.Clamp01(preset.fillOpacity);
+        borderOpacity = Mathf.Clamp01(preset.borderOpacity);
+        topHighlight = Mathf.Clamp01(preset.topHighlight);
+        bottomShade = Mathf.Clamp(preset.bottomShade, 0, 0.5f);
+        glossIntensity = Mathf.Clamp01(preset.glossIntensity);
+        glossWidth = Mathf.Clamp(preset.glossWidth, 0.02f, 0.8f);
+        glossPosition = Mathf.Clamp01(preset.glossPosition);
+        glossAngle = Mathf.Clamp(preset.glossAngle, -90, 90);
+        tint = preset.tint;
+
+        showShaderPreview = preset.useShaderPreview;
+        previewEffectOpacity = Mathf.Clamp01(preset.shaderEffectOpacity);
+        previewRefraction = Mathf.Clamp(preset.shaderRefraction, 0, 12);
+        previewRefractionEdgeWidth = Mathf.Clamp(preset.shaderRefractionEdgeWidth, 0.05f, 1);
+        previewLensStrength = Mathf.Clamp(preset.shaderLensStrength, 0, 0.35f);
+        previewLensPower = Mathf.Clamp(preset.shaderLensPower, 2, 24);
+        previewDiffraction = Mathf.Clamp(preset.shaderDiffraction, 0, 4);
+        previewBlurRadius = Mathf.Clamp(preset.shaderBlurRadius, 0, 16);
+        previewBlurStrength = Mathf.Clamp01(preset.shaderBlurStrength);
+        previewLuminancePreservation = Mathf.Clamp01(preset.shaderLuminancePreservation);
+        previewExposure = Mathf.Clamp(preset.shaderExposure, 0.5f, 2);
+        previewShadowLift = Mathf.Clamp(preset.shaderShadowLift, 0, 0.25f);
+        previewBackgroundMode = (PreviewBackgroundMode)Mathf.Clamp(preset.previewBackgroundMode, 0, 2);
+        customPreviewBackground = string.IsNullOrEmpty(preset.customPreviewBackgroundAssetPath)
+            ? null
+            : AssetDatabase.LoadAssetAtPath<Texture2D>(preset.customPreviewBackgroundAssetPath);
+
+        float loadedAspect = outputWidth / (float)Mathf.Max(1, outputHeight);
+        glassRect.height = Mathf.Max(80, glassRect.width / Mathf.Max(loadedAspect, 0.05f));
+        previewBackdropDirty = true;
+        previewDirty = true;
+        Repaint();
     }
 
     Color BlurPreviewBackdrop(Vector2 uv, float radiusU, float radiusV)

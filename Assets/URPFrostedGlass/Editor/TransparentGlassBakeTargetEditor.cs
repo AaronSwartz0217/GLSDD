@@ -19,6 +19,20 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
             UpdateScenePreview(targetComponent);
 
         EditorGUILayout.Space(10);
+        EditorGUILayout.LabelField("参数预设", EditorStyles.boldLabel);
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("保存预设", GUILayout.Height(30)))
+            GlassUIPresetIO.Save(targetComponent.CapturePreset(), targetComponent.gameObject.name + "Preset");
+        if (GUILayout.Button("读取预设", GUILayout.Height(30)) && GlassUIPresetIO.Load(out GlassUIBakerPreset preset))
+        {
+            Undo.RecordObject(targetComponent, "Load Glass UI Preset");
+            targetComponent.ApplyPreset(preset);
+            EditorUtility.SetDirty(targetComponent);
+            SceneView.RepaintAll();
+        }
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.Space(6);
         if (GUILayout.Button("重置 Shader 预览参数", GUILayout.Height(30)))
         {
             Undo.RecordObject(targetComponent, "Reset Glass Shader Preview");
@@ -96,6 +110,84 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
                 AssetDatabase.CreateFolder(current, part);
             current = next;
         }
+    }
+}
+
+static class GlassUIPresetIO
+{
+    const string LastDirectoryKey = "URPFrostedGlass.LastPresetDirectory";
+
+    public static void Save(GlassUIBakerPreset preset, string defaultName)
+    {
+        string directory = EditorPrefs.GetString(LastDirectoryKey, Application.dataPath);
+        if (!Directory.Exists(directory))
+            directory = Application.dataPath;
+
+        string path = EditorUtility.SaveFilePanel(
+            "保存毛玻璃 UI 预设",
+            directory,
+            string.IsNullOrWhiteSpace(defaultName) ? "FrostedGlassPreset" : defaultName,
+            "json");
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        try
+        {
+            File.WriteAllText(path, JsonUtility.ToJson(preset, true));
+            RememberDirectory(path);
+            RefreshIfInsideProject(path);
+            Debug.Log($"Saved frosted glass preset: {path}");
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogException(exception);
+            EditorUtility.DisplayDialog("保存预设失败", exception.Message, "OK");
+        }
+    }
+
+    public static bool Load(out GlassUIBakerPreset preset)
+    {
+        preset = null;
+        string directory = EditorPrefs.GetString(LastDirectoryKey, Application.dataPath);
+        if (!Directory.Exists(directory))
+            directory = Application.dataPath;
+
+        string path = EditorUtility.OpenFilePanel("读取毛玻璃 UI 预设", directory, "json");
+        if (string.IsNullOrEmpty(path))
+            return false;
+
+        try
+        {
+            preset = JsonUtility.FromJson<GlassUIBakerPreset>(File.ReadAllText(path));
+            if (preset == null || preset.version != 1)
+                throw new InvalidDataException("该文件不是支持的毛玻璃 UI 预设。");
+
+            RememberDirectory(path);
+            Debug.Log($"Loaded frosted glass preset: {path}");
+            return true;
+        }
+        catch (System.Exception exception)
+        {
+            preset = null;
+            Debug.LogException(exception);
+            EditorUtility.DisplayDialog("读取预设失败", exception.Message, "OK");
+            return false;
+        }
+    }
+
+    static void RememberDirectory(string path)
+    {
+        string directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+            EditorPrefs.SetString(LastDirectoryKey, directory);
+    }
+
+    static void RefreshIfInsideProject(string path)
+    {
+        string normalizedPath = Path.GetFullPath(path).Replace('\\', '/');
+        string normalizedProject = Path.GetFullPath(Directory.GetParent(Application.dataPath).FullName).Replace('\\', '/').TrimEnd('/') + "/";
+        if (normalizedPath.StartsWith(normalizedProject, System.StringComparison.OrdinalIgnoreCase))
+            AssetDatabase.Refresh();
     }
 }
 

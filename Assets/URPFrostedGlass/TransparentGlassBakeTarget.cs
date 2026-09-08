@@ -2,6 +2,43 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Rendering.Universal;
 
+[System.Serializable]
+public sealed class GlassUIBakerPreset
+{
+    public int version = 1;
+
+    public int outputWidth = 1200;
+    public int outputHeight = 520;
+    public float cornerRadius = 72f;
+    public float borderWidth = 2f;
+    public float fillOpacity = 0.14f;
+    public float borderOpacity = 0.62f;
+    public float topHighlight = 0.18f;
+    public float bottomShade = 0.06f;
+    public float glossIntensity = 0.14f;
+    public float glossWidth = 0.22f;
+    public float glossPosition = 0.72f;
+    public float glossAngle = -18f;
+    public Color tint = new Color(0.94f, 0.98f, 1f, 1f);
+
+    public bool useShaderPreview;
+    public float shaderEffectOpacity = 0.72f;
+    public float shaderRefraction = 2.5f;
+    public float shaderRefractionEdgeWidth = 0.8f;
+    public float shaderLensStrength = 0.08f;
+    public float shaderLensPower = 8f;
+    public float shaderDiffraction = 0.8f;
+    public float shaderBlurRadius = 4f;
+    public float shaderBlurStrength = 0.72f;
+    public float shaderLuminancePreservation = 0.85f;
+    public float shaderExposure = 1.10f;
+    public float shaderShadowLift = 0.035f;
+
+    // Standalone baker-only preview fields. Scene targets safely ignore these.
+    public int previewBackgroundMode;
+    public string customPreviewBackgroundAssetPath;
+}
+
 [ExecuteAlways]
 [RequireComponent(typeof(RectTransform))]
 public sealed class TransparentGlassBakeTarget : MonoBehaviour
@@ -179,6 +216,72 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         shaderShadowLift = 0.035f;
         RefreshPreview();
         UpdateShaderPreview();
+    }
+
+    public GlassUIBakerPreset CapturePreset()
+    {
+        return new GlassUIBakerPreset
+        {
+            outputWidth = outputWidth,
+            outputHeight = outputHeight,
+            cornerRadius = cornerRadius,
+            borderWidth = borderWidth,
+            fillOpacity = fillOpacity,
+            borderOpacity = borderOpacity,
+            topHighlight = topHighlight,
+            bottomShade = bottomShade,
+            glossIntensity = glossIntensity,
+            glossWidth = glossWidth,
+            glossPosition = glossPosition,
+            glossAngle = glossAngle,
+            tint = tint,
+            useShaderPreview = useShaderPreview,
+            shaderEffectOpacity = shaderEffectOpacity,
+            shaderRefraction = shaderRefraction,
+            shaderRefractionEdgeWidth = shaderRefractionEdgeWidth,
+            shaderLensStrength = shaderLensStrength,
+            shaderLensPower = shaderLensPower,
+            shaderDiffraction = shaderDiffraction,
+            shaderBlurRadius = shaderBlurRadius,
+            shaderBlurStrength = shaderBlurStrength,
+            shaderLuminancePreservation = shaderLuminancePreservation,
+            shaderExposure = shaderExposure,
+            shaderShadowLift = shaderShadowLift
+        };
+    }
+
+    public void ApplyPreset(GlassUIBakerPreset preset)
+    {
+        if (preset == null)
+            return;
+
+        outputWidth = Mathf.Clamp(preset.outputWidth, 64, 4096);
+        outputHeight = Mathf.Clamp(preset.outputHeight, 64, 4096);
+        cornerRadius = Mathf.Clamp(preset.cornerRadius, 0, Mathf.Min(outputWidth, outputHeight) * 0.5f);
+        borderWidth = Mathf.Clamp(preset.borderWidth, 0, 24);
+        fillOpacity = Mathf.Clamp01(preset.fillOpacity);
+        borderOpacity = Mathf.Clamp01(preset.borderOpacity);
+        topHighlight = Mathf.Clamp01(preset.topHighlight);
+        bottomShade = Mathf.Clamp(preset.bottomShade, 0, 0.5f);
+        glossIntensity = Mathf.Clamp01(preset.glossIntensity);
+        glossWidth = Mathf.Clamp(preset.glossWidth, 0.02f, 0.8f);
+        glossPosition = Mathf.Clamp01(preset.glossPosition);
+        glossAngle = Mathf.Clamp(preset.glossAngle, -90, 90);
+        tint = preset.tint;
+
+        useShaderPreview = preset.useShaderPreview;
+        shaderEffectOpacity = Mathf.Clamp01(preset.shaderEffectOpacity);
+        shaderRefraction = Mathf.Clamp(preset.shaderRefraction, 0, 12);
+        shaderRefractionEdgeWidth = Mathf.Clamp(preset.shaderRefractionEdgeWidth, 0.05f, 1);
+        shaderLensStrength = Mathf.Clamp(preset.shaderLensStrength, 0, 0.35f);
+        shaderLensPower = Mathf.Clamp(preset.shaderLensPower, 2, 24);
+        shaderDiffraction = Mathf.Clamp(preset.shaderDiffraction, 0, 4);
+        shaderBlurRadius = Mathf.Clamp(preset.shaderBlurRadius, 0, 16);
+        shaderBlurStrength = Mathf.Clamp01(preset.shaderBlurStrength);
+        shaderLuminancePreservation = Mathf.Clamp01(preset.shaderLuminancePreservation);
+        shaderExposure = Mathf.Clamp(preset.shaderExposure, 0.5f, 2);
+        shaderShadowLift = Mathf.Clamp(preset.shaderShadowLift, 0, 0.25f);
+        RefreshPreview();
     }
 
     void EnsureCheckerboard()
