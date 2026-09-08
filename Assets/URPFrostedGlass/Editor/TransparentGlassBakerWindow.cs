@@ -32,6 +32,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     DragMode dragMode;
     Vector2 dragStart;
     Rect rectAtDragStart;
+    double nextShaderPreviewRefreshTime;
 
     int outputWidth = 1200;
     int outputHeight = 520;
@@ -187,8 +188,9 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
 
         // The cached preview resolution follows output aspect only. Dragging the
         // frame merely stretches the texture, keeping edge resizing responsive.
-        int previewWidth = outputWidth >= outputHeight ? 384 : Mathf.Max(64, Mathf.RoundToInt(384f * outputWidth / outputHeight));
-        int previewHeight = outputWidth >= outputHeight ? Mathf.Max(64, Mathf.RoundToInt(384f * outputHeight / outputWidth)) : 384;
+        int previewMaxSize = showShaderPreview ? 256 : 384;
+        int previewWidth = outputWidth >= outputHeight ? previewMaxSize : Mathf.Max(64, Mathf.RoundToInt(previewMaxSize * (float)outputWidth / outputHeight));
+        int previewHeight = outputWidth >= outputHeight ? Mathf.Max(64, Mathf.RoundToInt(previewMaxSize * (float)outputHeight / outputWidth)) : previewMaxSize;
         if (previewDirty || preview == null || preview.width != previewWidth || preview.height != previewHeight)
         {
             if (preview != null)
@@ -257,6 +259,11 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                 next.xMax = Mathf.Min(workspace.xMax - 8, next.xMax);
                 next.yMax = Mathf.Min(workspace.yMax - 8, next.yMax);
                 glassRect = next;
+                if (showShaderPreview && EditorApplication.timeSinceStartup >= nextShaderPreviewRefreshTime)
+                {
+                    previewDirty = true;
+                    nextShaderPreviewRefreshTime = EditorApplication.timeSinceStartup + 0.08;
+                }
             }
             e.Use();
             Repaint();
