@@ -21,7 +21,7 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField("参数预设", EditorStyles.boldLabel);
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("保存预设", GUILayout.Height(30)))
+        if (GUILayout.Button("保存当前预设", GUILayout.Height(30)))
             GlassUIPresetIO.Save(targetComponent.CapturePreset(), targetComponent.gameObject.name + "Preset");
         if (GUILayout.Button("读取预设", GUILayout.Height(30)) && GlassUIPresetIO.Load(out GlassUIBakerPreset preset))
         {

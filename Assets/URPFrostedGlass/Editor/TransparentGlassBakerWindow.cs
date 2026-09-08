@@ -181,7 +181,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         EditorGUILayout.Space(8);
         EditorGUILayout.LabelField("参数预设", EditorStyles.boldLabel);
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("保存预设", GUILayout.Height(30)))
+        if (GUILayout.Button("保存当前预设", GUILayout.Height(30)))
             GlassUIPresetIO.Save(CapturePreset(), "FrostedGlassPreset");
         if (GUILayout.Button("读取预设", GUILayout.Height(30)) && GlassUIPresetIO.Load(out GlassUIBakerPreset preset))
             ApplyPreset(preset);

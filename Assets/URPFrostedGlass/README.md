@@ -75,7 +75,7 @@ Shader 效果模式使用独立 GPU 预览 Shader，按窗口实际显示分辨�
 
 ### 参数预设
 
-烘焙窗口和 `Glass Bake Target` Inspector 都提供“保存预设 / 读取预设”。预设使用可读的 `.json` 文件，保存输出尺寸、圆角、透明度、边框、光泽以及全部实时 Shader 参数。烘焙窗口还会保存预览背景类型和 Assets 内的自定义背景引用。预设可存在工程内或任意外部文件夹，不受 PNG 必须存入 Assets 的限制。
+烘焙窗口和 `Glass Bake Target` Inspector 都提供“保存当前预设 / 读取预设”。点击保存时会即时捕获当前界面上的参数，并写入可读的 `.json` 文件，其中包含输出尺寸、圆角、透明度、边框、光泽以及全部实时 Shader 参数。烘焙窗口还会保存预览背景类型和 Assets 内的自定义背景引用。预设可存在工程内或任意外部文件夹，不受 PNG 必须存入 Assets 的限制。
 
 点击“烘焙透明 PNG”后会输出 RGBA PNG，并自动按 Unity Sprite 导入，外部区域 Alpha 为 0。
 
