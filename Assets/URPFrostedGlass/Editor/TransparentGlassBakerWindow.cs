@@ -21,6 +21,13 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         BottomRight
     }
 
+    enum PreviewBackgroundMode
+    {
+        Colorful,
+        Checkerboard,
+        CustomTexture
+    }
+
     Rect glassRect = new Rect(100, 120, 620, 300);
     DragMode dragMode;
     Vector2 dragStart;
@@ -41,14 +48,18 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     Color tint = new Color(0.94f, 0.98f, 1f, 1f);
 
     bool showShaderPreview;
-    float previewEffectOpacity = 0.52f;
+    float previewEffectOpacity = 0.72f;
     float previewRefraction = 2.5f;
     float previewDiffraction = 0.8f;
     float previewBlurRadius = 4f;
     float previewBlurStrength = 0.72f;
+    PreviewBackgroundMode previewBackgroundMode = PreviewBackgroundMode.Colorful;
+    Texture2D customPreviewBackground;
 
     Texture2D preview;
     Texture2D previewBackdrop;
+    Color32[] previewBackdropPixels;
+    bool previewBackdropDirty = true;
     bool previewDirty = true;
     Vector2 toolbarScroll;
 
@@ -105,7 +116,15 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         showShaderPreview = EditorGUILayout.Toggle("Shader 效果预览", showShaderPreview);
         if (showShaderPreview)
         {
-            previewEffectOpacity = EditorGUILayout.Slider("效果透明度", previewEffectOpacity, 0, 1);
+            PreviewBackgroundMode oldBackgroundMode = previewBackgroundMode;
+            Texture2D oldCustomBackground = customPreviewBackground;
+            previewBackgroundMode = (PreviewBackgroundMode)EditorGUILayout.EnumPopup("预览背景", previewBackgroundMode);
+            if (previewBackgroundMode == PreviewBackgroundMode.CustomTexture)
+                customPreviewBackground = (Texture2D)EditorGUILayout.ObjectField("背景图片", customPreviewBackground, typeof(Texture2D), false);
+            if (oldBackgroundMode != previewBackgroundMode || oldCustomBackground != customPreviewBackground)
+                previewBackdropDirty = true;
+
+            previewEffectOpacity = EditorGUILayout.Slider("效果强度", previewEffectOpacity, 0, 1);
             previewRefraction = EditorGUILayout.Slider("折射", previewRefraction, 0, 12);
             previewDiffraction = EditorGUILayout.Slider("RGB 色散", previewDiffraction, 0, 4);
             previewBlurRadius = EditorGUILayout.Slider("模糊半径", previewBlurRadius, 0, 16);
@@ -444,15 +463,15 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                     normal.x * previewRefraction * edgeWeight * screenPixelU,
                     normal.y * previewRefraction * edgeWeight * screenPixelV);
 
-                Color original = PreviewBackdropColor(screenUV.x, screenUV.y);
+                Color original = SamplePreviewBackdrop(screenUV.x, screenUV.y);
                 Color blurred = BlurPreviewBackdrop(refractedUV, previewBlurRadius * screenPixelU, previewBlurRadius * screenPixelV);
                 Color glass = Color.Lerp(original, blurred, previewBlurStrength);
 
                 Vector2 chroma = new Vector2(
                     normal.x * previewDiffraction * edgeWeight * screenPixelU,
                     normal.y * previewDiffraction * edgeWeight * screenPixelV);
-                Color redSample = PreviewBackdropColor(refractedUV.x + chroma.x, refractedUV.y + chroma.y);
-                Color blueSample = PreviewBackdropColor(refractedUV.x - chroma.x, refractedUV.y - chroma.y);
+                Color redSample = SamplePreviewBackdrop(refractedUV.x + chroma.x, refractedUV.y + chroma.y);
+                Color blueSample = SamplePreviewBackdrop(refractedUV.x - chroma.x, refractedUV.y - chroma.y);
                 float diffractionMix = Mathf.Clamp01(previewDiffraction * 0.28f);
                 glass.r = Mathf.Lerp(glass.r, redSample.r, diffractionMix);
                 glass.b = Mathf.Lerp(glass.b, blueSample.b, diffractionMix);
@@ -469,9 +488,9 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                 glass = Color.Lerp(glass, new Color(tint.r, tint.g, tint.b, 1), fillOpacity * 0.42f + gloss * 0.35f);
                 glass *= 1f - shade * 0.3f;
                 glass += Color.white * highlight;
+                glass = Color.Lerp(original, glass, previewEffectOpacity);
                 glass = Color.Lerp(glass, Color.white, borderMask * borderOpacity);
-                glass.a = coverage * previewEffectOpacity;
-                glass.a = Mathf.Max(glass.a, borderMask * borderOpacity);
+                glass.a = coverage;
                 pixels[y * width + x] = glass;
             }
         }
@@ -483,20 +502,20 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
 
     Color BlurPreviewBackdrop(Vector2 uv, float radiusU, float radiusV)
     {
-        Color c = PreviewBackdropColor(uv.x, uv.y) * 0.20f;
-        c += PreviewBackdropColor(uv.x + radiusU, uv.y) * 0.12f;
-        c += PreviewBackdropColor(uv.x - radiusU, uv.y) * 0.12f;
-        c += PreviewBackdropColor(uv.x, uv.y + radiusV) * 0.12f;
-        c += PreviewBackdropColor(uv.x, uv.y - radiusV) * 0.12f;
-        c += PreviewBackdropColor(uv.x + radiusU, uv.y + radiusV) * 0.08f;
-        c += PreviewBackdropColor(uv.x - radiusU, uv.y - radiusV) * 0.08f;
-        c += PreviewBackdropColor(uv.x + radiusU, uv.y - radiusV) * 0.08f;
-        c += PreviewBackdropColor(uv.x - radiusU, uv.y + radiusV) * 0.08f;
+        Color c = SamplePreviewBackdrop(uv.x, uv.y) * 0.20f;
+        c += SamplePreviewBackdrop(uv.x + radiusU, uv.y) * 0.12f;
+        c += SamplePreviewBackdrop(uv.x - radiusU, uv.y) * 0.12f;
+        c += SamplePreviewBackdrop(uv.x, uv.y + radiusV) * 0.12f;
+        c += SamplePreviewBackdrop(uv.x, uv.y - radiusV) * 0.12f;
+        c += SamplePreviewBackdrop(uv.x + radiusU, uv.y + radiusV) * 0.08f;
+        c += SamplePreviewBackdrop(uv.x - radiusU, uv.y - radiusV) * 0.08f;
+        c += SamplePreviewBackdrop(uv.x + radiusU, uv.y - radiusV) * 0.08f;
+        c += SamplePreviewBackdrop(uv.x - radiusU, uv.y + radiusV) * 0.08f;
         c.a = 1;
         return c;
     }
 
-    static Color PreviewBackdropColor(float u, float v)
+    static Color ColorfulBackdropColor(float u, float v)
     {
         u = Mathf.Clamp01(u);
         v = Mathf.Clamp01(v);
@@ -513,10 +532,40 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         return Color.Lerp(c, Color.white, stripe * 0.14f);
     }
 
+    static Color CheckerboardBackdropColor(float u, float v)
+    {
+        u = Mathf.Clamp01(u);
+        v = Mathf.Clamp01(v);
+        int x = Mathf.FloorToInt(u * 18f);
+        int y = Mathf.FloorToInt(v * 32f);
+        return ((x + y) & 1) == 0
+            ? new Color(0.20f, 0.22f, 0.26f, 1)
+            : new Color(0.38f, 0.41f, 0.47f, 1);
+    }
+
+    Color SamplePreviewBackdrop(float u, float v)
+    {
+        u = Mathf.Clamp01(u);
+        v = Mathf.Clamp01(v);
+        if (previewBackdrop != null)
+        {
+            int x = Mathf.Clamp(Mathf.RoundToInt(u * (previewBackdrop.width - 1)), 0, previewBackdrop.width - 1);
+            int y = Mathf.Clamp(Mathf.RoundToInt(v * (previewBackdrop.height - 1)), 0, previewBackdrop.height - 1);
+            if (previewBackdropPixels != null && previewBackdropPixels.Length == previewBackdrop.width * previewBackdrop.height)
+                return previewBackdropPixels[y * previewBackdrop.width + x];
+        }
+        return previewBackgroundMode == PreviewBackgroundMode.Checkerboard
+            ? CheckerboardBackdropColor(u, v)
+            : ColorfulBackdropColor(u, v);
+    }
+
     void EnsurePreviewBackdrop()
     {
-        if (previewBackdrop != null)
+        if (previewBackdrop != null && !previewBackdropDirty)
             return;
+
+        if (previewBackdrop != null)
+            DestroyImmediate(previewBackdrop);
 
         const int width = 512;
         const int height = 512;
@@ -527,12 +576,34 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
             filterMode = FilterMode.Bilinear,
             wrapMode = TextureWrapMode.Clamp
         };
-        Color32[] pixels = new Color32[width * height];
-        for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++)
-            pixels[y * width + x] = PreviewBackdropColor(x / (float)(width - 1), y / (float)(height - 1));
-        previewBackdrop.SetPixels32(pixels);
-        previewBackdrop.Apply(false, false);
+        if (previewBackgroundMode == PreviewBackgroundMode.CustomTexture && customPreviewBackground != null)
+        {
+            RenderTexture temporary = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            Graphics.Blit(customPreviewBackground, temporary);
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = temporary;
+            previewBackdrop.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
+            previewBackdrop.Apply(false, false);
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(temporary);
+        }
+        else
+        {
+            Color32[] pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                float u = x / (float)(width - 1);
+                float v = y / (float)(height - 1);
+                pixels[y * width + x] = previewBackgroundMode == PreviewBackgroundMode.Checkerboard
+                    ? CheckerboardBackdropColor(u, v)
+                    : ColorfulBackdropColor(u, v);
+            }
+            previewBackdrop.SetPixels32(pixels);
+            previewBackdrop.Apply(false, false);
+        }
+        previewBackdropPixels = previewBackdrop.GetPixels32();
+        previewBackdropDirty = false;
     }
 
     static float RoundedBoxSdf(Vector2 p, Vector2 halfSize, float radius)

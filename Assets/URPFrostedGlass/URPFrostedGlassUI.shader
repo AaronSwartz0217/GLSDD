@@ -4,7 +4,7 @@ Shader "UI/URP Frosted Glass Diffraction"
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _TintColor ("Glass Tint", Color) = (0.92, 0.97, 1.0, 0.16)
-        _Opacity ("Glass Effect Opacity", Range(0, 1)) = 0.52
+        _Opacity ("Glass Effect Strength", Range(0, 1)) = 0.72
         _MaskThreshold ("PNG Alpha Mask Threshold", Range(0, 0.5)) = 0.025
         _MaskSoftness ("PNG Alpha Mask Softness", Range(0.001, 0.25)) = 0.03
         _SpriteOverlay ("Baked PNG Overlay", Range(0, 1)) = 0.22
@@ -207,15 +207,17 @@ Shader "UI/URP Frosted Glass Diffraction"
                 half innerEdge = 1.0h - smoothstep(0.0h, max(_CornerRadius * 0.65h, 1.0h), -sdf);
                 glass += top * innerEdge * _TopHighlight;
                 glass *= 1.0h - bottom * innerEdge * _BottomShade;
+                // The effect strength blends processed and original scene color
+                // inside the shader. Output alpha remains solid within the mask so
+                // the sampled background is not blended with itself a second time.
+                glass = lerp(scene, glass, _Opacity);
                 glass = lerp(glass, _BorderColor.rgb, border * _BorderColor.a);
 
                 // Retain the baked PNG's border/gloss artwork as a subtle overlay.
                 half artwork = saturate(bakedSprite.a * _SpriteOverlay);
                 glass = lerp(glass, bakedSprite.rgb, artwork);
 
-                half alpha = effectMask * input.color.a * _Opacity;
-                alpha = max(alpha, inside * bakedSprite.a * input.color.a * _SpriteOverlay);
-                alpha = saturate(alpha + border * _BorderColor.a * effectMask * 0.35h);
+                half alpha = effectMask * input.color.a;
                 return half4(glass * input.color.rgb, alpha);
             }
             ENDHLSL

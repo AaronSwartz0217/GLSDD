@@ -24,7 +24,8 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
 
     [Header("Realtime Shader Preview (not baked)")]
     public bool useShaderPreview;
-    [Range(0, 1)] public float shaderEffectOpacity = 0.52f;
+    [InspectorName("Shader Effect Strength")]
+    [Range(0, 1)] public float shaderEffectOpacity = 0.72f;
     [Range(0, 12)] public float shaderRefraction = 2.5f;
     [Range(0, 4)] public float shaderDiffraction = 0.8f;
     [Range(0, 16)] public float shaderBlurRadius = 4f;
