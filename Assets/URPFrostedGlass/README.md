@@ -72,4 +72,18 @@ Unity 编译完成后，打开：
 3. 点击“按当前 RectTransform 同步输出比例”。
 4. 点击“烘焙透明 PNG”。
 
+### 实时 Shader 预览
+
+选中 `Glass Bake Target`，启用 `Use Shader Preview`。场景会暂时隐藏透明棋盘格，并显示一个不会保存、不会烘焙的彩色测试背景；UI Image 同时切换到 `UI/URP Frosted Glass Diffraction`，用于观察真实的背景模糊、轻微折射和 RGB 色散。
+
+可实时调整：
+
+- Shader Effect Opacity
+- Shader Refraction
+- Shader Diffraction
+- Shader Blur Radius
+- Shader Blur Strength
+
+关闭 `Use Shader Preview` 后会恢复透明 PNG 与棋盘格检查模式。无论开关是否启用，烘焙输出都不包含测试背景、折射或模糊。
+
 也可以通过 `Tools > URP Frosted Glass > Create/Open UI Baker Scene` 创建或打开该场景。

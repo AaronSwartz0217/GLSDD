@@ -22,13 +22,26 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
     [Range(-90, 90)] public float glossAngle = -18f;
     public Color tint = new Color(0.94f, 0.98f, 1f, 1f);
 
+    [Header("Realtime Shader Preview (not baked)")]
+    public bool useShaderPreview;
+    [Range(0, 1)] public float shaderEffectOpacity = 0.52f;
+    [Range(0, 12)] public float shaderRefraction = 2.5f;
+    [Range(0, 4)] public float shaderDiffraction = 0.8f;
+    [Range(0, 16)] public float shaderBlurRadius = 4f;
+    [Range(0, 1)] public float shaderBlurStrength = 0.72f;
+
     Texture2D previewTexture;
     Sprite previewSprite;
     Texture2D checkerTexture;
+    Material shaderPreviewMaterial;
+    GameObject shaderPreviewBackdrop;
+    Texture2D shaderPreviewBackdropTexture;
+    Material shaderPreviewBackdropMaterial;
 
     void OnEnable()
     {
         EnsureCheckerboard();
+        EnsureShaderPreviewBackdrop();
         RefreshPreview();
     }
 
@@ -80,6 +93,59 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         Outline outline = GetComponent<Outline>();
         if (outline != null)
             outline.enabled = false;
+
+        UpdateShaderPreview();
+    }
+
+    public void UpdateShaderPreview()
+    {
+        Image image = GetComponent<Image>();
+        if (image == null)
+            return;
+
+        Transform checker = transform.parent != null ? transform.parent.Find("Transparency Preview Background") : null;
+        if (checker != null)
+            checker.gameObject.SetActive(!useShaderPreview);
+
+        EnsureShaderPreviewBackdrop();
+        if (shaderPreviewBackdrop != null)
+            shaderPreviewBackdrop.SetActive(useShaderPreview);
+
+        if (!useShaderPreview)
+        {
+            image.material = null;
+            image.SetMaterialDirty();
+            return;
+        }
+
+        Shader shader = Shader.Find("UI/URP Frosted Glass Diffraction");
+        if (shader == null)
+            return;
+
+        if (shaderPreviewMaterial == null || shaderPreviewMaterial.shader != shader)
+        {
+            if (shaderPreviewMaterial != null)
+                DestroyImmediate(shaderPreviewMaterial);
+            shaderPreviewMaterial = new Material(shader)
+            {
+                name = "Glass Shader Preview (Temporary)",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+        }
+
+        shaderPreviewMaterial.SetColor("_TintColor", new Color(tint.r, tint.g, tint.b, 0.14f));
+        shaderPreviewMaterial.SetFloat("_Opacity", shaderEffectOpacity);
+        shaderPreviewMaterial.SetFloat("_MaskThreshold", 0.02f);
+        shaderPreviewMaterial.SetFloat("_MaskSoftness", 0.035f);
+        shaderPreviewMaterial.SetFloat("_SpriteOverlay", 0.22f);
+        shaderPreviewMaterial.SetFloat("_CornerRadius", cornerRadius);
+        shaderPreviewMaterial.SetFloat("_BorderWidth", borderWidth);
+        shaderPreviewMaterial.SetFloat("_Refraction", shaderRefraction);
+        shaderPreviewMaterial.SetFloat("_Diffraction", shaderDiffraction);
+        shaderPreviewMaterial.SetFloat("_BlurRadius", shaderBlurRadius);
+        shaderPreviewMaterial.SetFloat("_BlurStrength", shaderBlurStrength);
+        image.material = shaderPreviewMaterial;
+        image.SetMaterialDirty();
     }
 
     void EnsureCheckerboard()
@@ -126,6 +192,90 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         rawImage.texture = checkerTexture;
         rawImage.uvRect = new Rect(0, 0, 18, 32);
         rawImage.color = Color.white;
+    }
+
+    void EnsureShaderPreviewBackdrop()
+    {
+        if (transform.parent == null || transform.parent.name != "UI Bake Canvas" || shaderPreviewBackdrop != null)
+            return;
+
+        Camera camera = GetComponentInParent<Canvas>() != null ? GetComponentInParent<Canvas>().worldCamera : null;
+        if (camera == null)
+            return;
+
+        shaderPreviewBackdrop = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        shaderPreviewBackdrop.name = "Shader Preview Backdrop (Temporary)";
+        shaderPreviewBackdrop.hideFlags = HideFlags.HideAndDontSave;
+        Collider collider = shaderPreviewBackdrop.GetComponent<Collider>();
+        if (collider != null)
+            DestroyImmediate(collider);
+
+        shaderPreviewBackdrop.transform.position = camera.transform.position + camera.transform.forward * 8f;
+        shaderPreviewBackdrop.transform.rotation = camera.transform.rotation;
+        float height = camera.orthographicSize * 2f;
+        float width = height * Mathf.Max(1f, camera.aspect);
+        shaderPreviewBackdrop.transform.localScale = new Vector3(width, height, 1f);
+
+        shaderPreviewBackdropTexture = CreateShaderPreviewBackdropTexture();
+        Shader backdropShader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (backdropShader == null)
+            backdropShader = Shader.Find("Unlit/Texture");
+        if (backdropShader != null)
+        {
+            shaderPreviewBackdropMaterial = new Material(backdropShader)
+            {
+                name = "Shader Preview Backdrop Material (Temporary)",
+                hideFlags = HideFlags.HideAndDontSave,
+                mainTexture = shaderPreviewBackdropTexture
+            };
+            shaderPreviewBackdrop.GetComponent<MeshRenderer>().sharedMaterial = shaderPreviewBackdropMaterial;
+        }
+        shaderPreviewBackdrop.SetActive(useShaderPreview);
+    }
+
+    Texture2D CreateShaderPreviewBackdropTexture()
+    {
+        const int size = 256;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false, false)
+        {
+            name = "Shader Preview Backdrop Texture (Temporary)",
+            hideFlags = HideFlags.HideAndDontSave,
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+        Color32[] pixels = new Color32[size * size];
+        Color navy = new Color(0.035f, 0.055f, 0.11f, 1);
+        Color blue = new Color(0.08f, 0.42f, 0.96f, 1);
+        Color violet = new Color(0.66f, 0.18f, 0.92f, 1);
+        Color cyan = new Color(0.06f, 0.86f, 0.82f, 1);
+
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            float u = x / (float)(size - 1);
+            float v = y / (float)(size - 1);
+            Color c = Color.Lerp(navy, blue, Mathf.SmoothStep(0, 1, u));
+            float violetSpot = Mathf.Exp(-38f * ((u - 0.72f) * (u - 0.72f) + (v - 0.72f) * (v - 0.72f)));
+            float cyanSpot = Mathf.Exp(-45f * ((u - 0.24f) * (u - 0.24f) + (v - 0.32f) * (v - 0.32f)));
+            c = Color.Lerp(c, violet, violetSpot * 0.9f);
+            c = Color.Lerp(c, cyan, cyanSpot * 0.85f);
+            float stripe = Mathf.SmoothStep(0.46f, 0.5f, Mathf.Abs(Mathf.Repeat((u + v * 0.35f) * 7f, 1f) - 0.5f));
+            c = Color.Lerp(c, Color.white, stripe * 0.14f);
+            pixels[y * size + x] = c;
+        }
+        texture.SetPixels32(pixels);
+        texture.Apply(false, false);
+        return texture;
+    }
+
+    void OnDisable()
+    {
+        if (previewSprite != null) DestroyImmediate(previewSprite);
+        if (previewTexture != null) DestroyImmediate(previewTexture);
+        if (shaderPreviewMaterial != null) DestroyImmediate(shaderPreviewMaterial);
+        if (shaderPreviewBackdrop != null) DestroyImmediate(shaderPreviewBackdrop);
+        if (shaderPreviewBackdropMaterial != null) DestroyImmediate(shaderPreviewBackdropMaterial);
+        if (shaderPreviewBackdropTexture != null) DestroyImmediate(shaderPreviewBackdropTexture);
     }
 
     Texture2D RenderPreview(int width, int height)

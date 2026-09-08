@@ -38,6 +38,7 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
     static void UpdateScenePreview(TransparentGlassBakeTarget targetComponent)
     {
         targetComponent.RefreshPreview();
+        targetComponent.UpdateShaderPreview();
         SceneView.RepaintAll();
     }
 
