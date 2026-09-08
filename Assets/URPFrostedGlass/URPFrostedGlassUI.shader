@@ -15,7 +15,7 @@ Shader "UI/URP Frosted Glass Diffraction"
         _Refraction ("Refraction (Pixels)", Range(0, 12)) = 2.5
         _RefractionEdgeWidth ("Refraction Edge Width", Range(0.05, 1)) = 0.8
         _LensStrength ("Lens Refraction Strength", Range(0, 0.35)) = 0.08
-        _LensPower ("Lens Superellipse Power", Range(2, 24)) = 8
+        _LensPower ("Lens Contour Falloff", Range(2, 24)) = 8
         _Diffraction ("RGB Diffraction (Pixels)", Range(0, 4)) = 0.8
         _BlurRadius ("Blur Radius (Pixels)", Range(0, 16)) = 4
         _BlurStrength ("Blur Strength", Range(0, 1)) = 0.72
@@ -189,25 +189,29 @@ Shader "UI/URP Frosted Glass Diffraction"
                 clip(effectMask - 0.001h);
 
                 float2 screenUV = input.screenPos.xy / input.screenPos.w;
-                float depth = saturate(-sdf / max(_CornerRadius, 1.0));
-                float2 normalizedBox = abs(p) / max(halfSize, float2(1.0, 1.0));
-                float superellipse = pow(saturate(normalizedBox.x), _LensPower)
-                                   + pow(saturate(normalizedBox.y), _LensPower);
-                float lensEdge = smoothstep(0.05, 1.0, saturate(superellipse));
+                // Use the same rounded-box SDF for coverage and lens response. The
+                // lens therefore follows the live RectTransform and corner radius
+                // instead of forming a separate fixed superellipse inside it.
+                float contourDepth = saturate(-sdf / max(min(halfSize.x, halfSize.y), 1.0));
+                float contourEdge = 1.0 - smoothstep(0.0, 1.0, contourDepth);
+                float lensFalloff = max(_LensPower / 8.0, 0.25);
+                float lensEdge = pow(saturate(contourEdge), lensFalloff);
 
                 // Adapted from the Shadertoy lens formulation: scale the sampled
-                // screen UV around this UI rectangle's center. The eighth-power
-                // superellipse keeps the lens field rectangular with soft corners.
+                // screen UV around this UI rectangle's center.
                 float2 panelCenterUV = screenUV - (input.uv - 0.5) * rectSize / _ScreenParams.xy;
                 float lensScale = 1.0 - _LensStrength * lensEdge;
                 float2 lensUV = panelCenterUV + (screenUV - panelCenterUV) * lensScale;
 
-                float2 radialNormal = normalize(p + float2(1e-4, 1e-4));
+                // Screen-space SDF derivatives produce the true normal of the
+                // current rounded outline, including its flat sides and corners.
+                float2 contourNormal = normalize(float2(ddx(sdf), ddy(sdf)) + float2(1e-5, 1e-5));
                 float2 alphaGradient = float2(ddx(bakedSprite.a), ddy(bakedSprite.a));
                 float gradientWeight = saturate(dot(abs(alphaGradient), float2(64.0, 64.0)));
                 float2 edgeNormal = normalize(-alphaGradient + float2(1e-5, 1e-5));
-                float2 refractNormal = normalize(lerp(radialNormal, edgeNormal, gradientWeight));
-                float refractionBand = 1.0 - smoothstep(0.02, max(_RefractionEdgeWidth, 0.05), depth);
+                float2 refractNormal = normalize(lerp(contourNormal, edgeNormal, gradientWeight));
+                float edgeDepth = saturate(-sdf / max(_CornerRadius, 1.0));
+                float refractionBand = 1.0 - smoothstep(0.02, max(_RefractionEdgeWidth, 0.05), edgeDepth);
                 float edgeWeight = saturate(refractionBand + gradientWeight);
                 float2 refractOffset = refractNormal * (_Refraction * edgeWeight) / _ScreenParams.xy;
                 float2 refractedUV = clamp(lensUV + refractOffset, 0.001, 0.999);

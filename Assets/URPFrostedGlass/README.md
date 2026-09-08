@@ -39,7 +39,7 @@ Shader 会从 UI UV 的屏幕导数自动计算矩形像素尺寸，因此多个
 - Refraction: 1.5–3.5 px
 - Refraction Edge Width: 0.5–0.9
 - Lens Refraction Strength: 0.04–0.12
-- Lens Superellipse Power: 2–24（推荐 8）
+- Lens Contour Falloff: 2–24（推荐 8）
 - RGB Diffraction: 0.4–1.0 px
 - Blur Radius: 3–6 px
 - Blur Strength: 0.6–0.8
@@ -49,7 +49,7 @@ Shader 会从 UI UV 的屏幕导数自动计算矩形像素尺寸，因此多个
 
 Shader 使用一次九点模糊和两次色散采样，共 11 次场景颜色采样。移动端可将 Blur Radius 调低到 2–3，并关闭或降低 RGB Diffraction。
 
-透镜折射参考超椭圆 UV 缩放方案：以面板中心为采样中心，使用默认 8 次幂场控制矩形透镜形状，越靠近边缘 UV 收缩越明显。`Refraction` 是边缘像素偏移，`Lens Refraction Strength` 是整体透镜变形，两者可以独立使用。
+透镜折射与面板遮罩共用同一个圆角轮廓：拖动 RectTransform 或修改 Corner Radius 后，透镜边缘、折射法线和变形范围会自动跟随新轮廓。`Lens Contour Falloff` 只调整折射从边缘向中心衰减的速度，不会再创建独立的透镜形状。`Refraction` 是边缘像素偏移，`Lens Refraction Strength` 是整体透镜变形，两者可以独立使用。
 
 `Refraction Edge Width` 控制像素偏移折射从轮廓向内部延伸的范围。Baker 窗口和场景目标 Inspector 均提供“重置 Shader 预览参数”按钮。
 

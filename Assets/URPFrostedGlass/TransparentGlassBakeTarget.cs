@@ -30,6 +30,7 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
     [Range(0, 12)] public float shaderRefraction = 2.5f;
     [Range(0.05f, 1)] public float shaderRefractionEdgeWidth = 0.8f;
     [Range(0, 0.35f)] public float shaderLensStrength = 0.08f;
+    [InspectorName("Lens Contour Falloff")]
     [Range(2, 24)] public float shaderLensPower = 8f;
     [Range(0, 4)] public float shaderDiffraction = 0.8f;
     [Range(0, 16)] public float shaderBlurRadius = 4f;

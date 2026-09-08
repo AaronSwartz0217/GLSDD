@@ -85,16 +85,18 @@ Shader "Hidden/URPFrostedGlass/BakerPreview"
                 float coverage = 1.0 - smoothstep(-aa, aa, sdf);
                 clip(coverage - 0.001);
 
-                float2 normalizedBox = abs(p) / max(halfSize, float2(0.001, 0.001));
-                float superellipse = pow(saturate(normalizedBox.x), _LensPower)
-                                   + pow(saturate(normalizedBox.y), _LensPower);
-                float lensEdge = smoothstep(0.05, 1.0, saturate(superellipse));
+                // Drive the lens with the exact same SDF as the visible panel so
+                // resizing and corner-radius edits reshape refraction immediately.
+                float contourDepth = saturate(-sdf / max(min(halfSize.x, halfSize.y), 0.001));
+                float contourEdge = 1.0 - smoothstep(0.0, 1.0, contourDepth);
+                float lensFalloff = max(_LensPower / 8.0, 0.25);
+                float lensEdge = pow(saturate(contourEdge), lensFalloff);
 
                 float2 backgroundUV = _BackgroundUV.xy + i.uv * _BackgroundUV.zw;
                 float2 backgroundCenter = _BackgroundUV.xy + _BackgroundUV.zw * 0.5;
                 float2 lensUV = backgroundCenter + (backgroundUV - backgroundCenter) * (1.0 - _LensStrength * lensEdge);
 
-                float2 normal = normalize(p + float2(1e-5, 1e-5));
+                float2 normal = normalize(float2(ddx(sdf), ddy(sdf)) + float2(1e-5, 1e-5));
                 float edgeDistance = saturate(-sdf / max(_CornerRadiusN, 0.001));
                 float edgeWeight = 1.0 - smoothstep(0.02, max(_RefractionEdgeWidth, 0.05), edgeDistance);
                 float2 refractionOffset = normal * _RefractionPixels * _BackgroundTex_TexelSize.xy * edgeWeight;

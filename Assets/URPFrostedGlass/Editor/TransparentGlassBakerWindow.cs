@@ -137,7 +137,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
             previewRefraction = EditorGUILayout.Slider("折射", previewRefraction, 0, 12);
             previewRefractionEdgeWidth = EditorGUILayout.Slider("折射边缘范围", previewRefractionEdgeWidth, 0.05f, 1);
             previewLensStrength = EditorGUILayout.Slider("透镜折射", previewLensStrength, 0, 0.35f);
-            previewLensPower = EditorGUILayout.Slider("透镜形状", previewLensPower, 2, 24);
+            previewLensPower = EditorGUILayout.Slider("透镜轮廓衰减", previewLensPower, 2, 24);
             previewDiffraction = EditorGUILayout.Slider("RGB 色散", previewDiffraction, 0, 4);
             previewBlurRadius = EditorGUILayout.Slider("模糊半径", previewBlurRadius, 0, 16);
             previewBlurStrength = EditorGUILayout.Slider("模糊强度", previewBlurStrength, 0, 1);
@@ -482,14 +482,13 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                     (glassRect.xMin - workspace.x + u * glassRect.width) / Mathf.Max(1f, workspace.width),
                     1f - (glassRect.yMin - workspace.y + (1f - v) * glassRect.height) / Mathf.Max(1f, workspace.height));
 
-                Vector2 normal = p.sqrMagnitude > 0.0001f ? p.normalized : Vector2.up;
+                Vector2 normal = RoundedBoxNormal(p, halfSize, radius);
                 float edgeDistance = Mathf.Clamp01(-sdf / Mathf.Max(radius, 1f));
-                float edgeWeight = 1f - Mathf.SmoothStep(0.05f, 0.8f, edgeDistance);
-                float normalizedX = Mathf.Abs(p.x) / Mathf.Max(1f, halfSize.x);
-                float normalizedY = Mathf.Abs(p.y) / Mathf.Max(1f, halfSize.y);
-                float superellipse = Mathf.Pow(Mathf.Clamp01(normalizedX), previewLensPower)
-                                   + Mathf.Pow(Mathf.Clamp01(normalizedY), previewLensPower);
-                float lensEdge = SmoothStep(0.05f, 1f, Mathf.Clamp01(superellipse));
+                float edgeWeight = 1f - Mathf.SmoothStep(0.02f, Mathf.Max(previewRefractionEdgeWidth, 0.05f), edgeDistance);
+                float contourDepth = Mathf.Clamp01(-sdf / Mathf.Max(Mathf.Min(halfSize.x, halfSize.y), 1f));
+                float contourEdge = 1f - SmoothStep(0f, 1f, contourDepth);
+                float lensFalloff = Mathf.Max(previewLensPower / 8f, 0.25f);
+                float lensEdge = Mathf.Pow(Mathf.Clamp01(contourEdge), lensFalloff);
                 Vector2 panelCenterUV = new Vector2(
                     (glassRect.center.x - workspace.x) / Mathf.Max(1f, workspace.width),
                     1f - (glassRect.center.y - workspace.y) / Mathf.Max(1f, workspace.height));
@@ -712,6 +711,17 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         Vector2 q = new Vector2(Mathf.Abs(p.x), Mathf.Abs(p.y)) - (halfSize - Vector2.one * radius);
         Vector2 outside = new Vector2(Mathf.Max(q.x, 0), Mathf.Max(q.y, 0));
         return outside.magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0) - radius;
+    }
+
+    static Vector2 RoundedBoxNormal(Vector2 p, Vector2 halfSize, float radius)
+    {
+        const float sampleStep = 0.5f;
+        float dx = RoundedBoxSdf(p + Vector2.right * sampleStep, halfSize, radius)
+                 - RoundedBoxSdf(p - Vector2.right * sampleStep, halfSize, radius);
+        float dy = RoundedBoxSdf(p + Vector2.up * sampleStep, halfSize, radius)
+                 - RoundedBoxSdf(p - Vector2.up * sampleStep, halfSize, radius);
+        Vector2 normal = new Vector2(dx, dy);
+        return normal.sqrMagnitude > 0.000001f ? normal.normalized : Vector2.up;
     }
 
     static float SmoothStep(float edge0, float edge1, float value)
