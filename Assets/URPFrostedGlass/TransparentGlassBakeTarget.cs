@@ -33,6 +33,9 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
     [Range(0, 4)] public float shaderDiffraction = 0.8f;
     [Range(0, 16)] public float shaderBlurRadius = 4f;
     [Range(0, 1)] public float shaderBlurStrength = 0.72f;
+    [Range(0, 1)] public float shaderLuminancePreservation = 0.85f;
+    [Range(0.5f, 2)] public float shaderExposure = 1.10f;
+    [Range(0, 0.25f)] public float shaderShadowLift = 0.035f;
 
     Texture2D previewTexture;
     Sprite previewSprite;
@@ -151,6 +154,9 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         shaderPreviewMaterial.SetFloat("_Diffraction", shaderDiffraction);
         shaderPreviewMaterial.SetFloat("_BlurRadius", shaderBlurRadius);
         shaderPreviewMaterial.SetFloat("_BlurStrength", shaderBlurStrength);
+        shaderPreviewMaterial.SetFloat("_LuminancePreservation", shaderLuminancePreservation);
+        shaderPreviewMaterial.SetFloat("_Exposure", shaderExposure);
+        shaderPreviewMaterial.SetFloat("_ShadowLift", shaderShadowLift);
         image.material = shaderPreviewMaterial;
         image.SetMaterialDirty();
     }

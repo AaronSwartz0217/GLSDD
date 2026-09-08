@@ -42,6 +42,9 @@ Shader 会从 UI UV 的屏幕导数自动计算矩形像素尺寸，因此多个
 - RGB Diffraction: 0.4–1.0 px
 - Blur Radius: 3–6 px
 - Blur Strength: 0.6–0.8
+- Luminance Preservation: 0.8–1.0
+- Exposure: 1.05–1.15
+- Shadow Lift: 0.02–0.06
 
 Shader 使用一次九点模糊和两次色散采样，共 11 次场景颜色采样。移动端可将 Blur Radius 调低到 2–3，并关闭或降低 RGB Diffraction。
 

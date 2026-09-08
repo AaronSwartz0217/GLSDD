@@ -55,6 +55,9 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     float previewDiffraction = 0.8f;
     float previewBlurRadius = 4f;
     float previewBlurStrength = 0.72f;
+    float previewLuminancePreservation = 0.85f;
+    float previewExposure = 1.10f;
+    float previewShadowLift = 0.035f;
     PreviewBackgroundMode previewBackgroundMode = PreviewBackgroundMode.Colorful;
     Texture2D customPreviewBackground;
 
@@ -136,6 +139,9 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
             previewDiffraction = EditorGUILayout.Slider("RGB 色散", previewDiffraction, 0, 4);
             previewBlurRadius = EditorGUILayout.Slider("模糊半径", previewBlurRadius, 0, 16);
             previewBlurStrength = EditorGUILayout.Slider("模糊强度", previewBlurStrength, 0, 1);
+            previewLuminancePreservation = EditorGUILayout.Slider("亮度保持", previewLuminancePreservation, 0, 1);
+            previewExposure = EditorGUILayout.Slider("曝光补偿", previewExposure, 0.5f, 2);
+            previewShadowLift = EditorGUILayout.Slider("暗部提升", previewShadowLift, 0, 0.25f);
             EditorGUILayout.HelpBox("这些参数只用于预览，不会写入透明 PNG。", MessageType.None);
         }
         if (EditorGUI.EndChangeCheck())
@@ -564,6 +570,9 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         gpuPreviewMaterial.SetFloat("_DiffractionPixels", previewDiffraction);
         gpuPreviewMaterial.SetFloat("_BlurRadiusPixels", previewBlurRadius);
         gpuPreviewMaterial.SetFloat("_BlurStrength", previewBlurStrength);
+        gpuPreviewMaterial.SetFloat("_LuminancePreservation", previewLuminancePreservation);
+        gpuPreviewMaterial.SetFloat("_Exposure", previewExposure);
+        gpuPreviewMaterial.SetFloat("_ShadowLift", previewShadowLift);
         Graphics.DrawTexture(glassRect, Texture2D.whiteTexture, gpuPreviewMaterial);
         return true;
     }

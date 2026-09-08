@@ -20,6 +20,9 @@ Shader "UI/URP Frosted Glass Diffraction"
         _BlurStrength ("Blur Strength", Range(0, 1)) = 0.72
         _Brightness ("Brightness", Range(0.5, 2)) = 1.04
         _Saturation ("Saturation", Range(0, 2)) = 1.06
+        _LuminancePreservation ("Luminance Preservation", Range(0, 1)) = 0.85
+        _Exposure ("Exposure", Range(0.5, 2)) = 1.10
+        _ShadowLift ("Shadow Lift", Range(0, 0.25)) = 0.035
         _TopHighlight ("Top Highlight", Range(0, 1)) = 0.18
         _BottomShade ("Bottom Shade", Range(0, 1)) = 0.08
         [HideInInspector] _RectSize ("Rect Size", Vector) = (600, 240, 0, 0)
@@ -112,6 +115,9 @@ Shader "UI/URP Frosted Glass Diffraction"
                 half _BlurStrength;
                 half _Brightness;
                 half _Saturation;
+                half _LuminancePreservation;
+                half _Exposure;
+                half _ShadowLift;
                 half _TopHighlight;
                 half _BottomShade;
             CBUFFER_END
@@ -218,8 +224,15 @@ Shader "UI/URP Frosted Glass Diffraction"
                 half shiftedB = SampleSceneColor(clamp(refractedUV - chromaOffset, 0.001, 0.999)).b;
                 glass.r = lerp(glass.r, shiftedR, saturate(_Diffraction * 0.28h));
                 glass.b = lerp(glass.b, shiftedB, saturate(_Diffraction * 0.28h));
+                half sourceLuma = dot(scene, half3(0.299h, 0.587h, 0.114h));
+                half processedLuma = dot(glass, half3(0.299h, 0.587h, 0.114h));
+                half lumaGain = clamp((sourceLuma + 0.02h) / (processedLuma + 0.02h), 0.75h, 1.5h);
+                glass *= lerp(1.0h, lumaGain, _LuminancePreservation);
                 glass = AdjustSaturation(glass, _Saturation) * _Brightness;
                 glass = lerp(glass, glass * _TintColor.rgb, _TintColor.a);
+                glass *= _Exposure;
+                half darkMask = 1.0h - saturate(dot(glass, half3(0.299h, 0.587h, 0.114h)));
+                glass = lerp(glass, half3(1.0h, 1.0h, 1.0h), _ShadowLift * darkMask);
 
                 half border = 1.0h - smoothstep(_BorderWidth - aa, _BorderWidth + aa, abs(sdf));
                 half top = saturate(input.uv.y - 0.5h) * 2.0h;

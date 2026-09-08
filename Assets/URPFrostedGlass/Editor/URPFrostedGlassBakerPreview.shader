@@ -44,6 +44,9 @@ Shader "Hidden/URPFrostedGlass/BakerPreview"
             float _DiffractionPixels;
             float _BlurRadiusPixels;
             float _BlurStrength;
+            float _LuminancePreservation;
+            float _Exposure;
+            float _ShadowLift;
 
             float RoundedBoxSDF(float2 p, float2 halfSize, float radius)
             {
@@ -108,6 +111,13 @@ Shader "Hidden/URPFrostedGlass/BakerPreview"
                 float diffractionMix = saturate(_DiffractionPixels * 0.28);
                 processed.r = lerp(processed.r, redSample.r, diffractionMix);
                 processed.b = lerp(processed.b, blueSample.b, diffractionMix);
+                float sourceLuma = dot(original, fixed3(0.299, 0.587, 0.114));
+                float processedLuma = dot(processed, fixed3(0.299, 0.587, 0.114));
+                float lumaGain = clamp((sourceLuma + 0.02) / (processedLuma + 0.02), 0.75, 1.5);
+                processed *= lerp(1.0, lumaGain, _LuminancePreservation);
+                processed *= _Exposure;
+                float darkMask = 1.0 - saturate(dot(processed, fixed3(0.299, 0.587, 0.114)));
+                processed = lerp(processed, fixed3(1.0, 1.0, 1.0), _ShadowLift * darkMask);
 
                 float border = 1.0 - smoothstep(_BorderWidthN - aa, _BorderWidthN + aa, abs(sdf));
                 float innerEdge = 1.0 - smoothstep(0.0, max(_CornerRadiusN * 0.55, 0.001), -sdf);
