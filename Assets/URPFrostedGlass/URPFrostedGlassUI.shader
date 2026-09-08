@@ -13,6 +13,8 @@ Shader "UI/URP Frosted Glass Diffraction"
         _BorderWidth ("Border Width (Pixels)", Range(0, 12)) = 1.5
         _BorderColor ("Border Color", Color) = (1, 1, 1, 0.72)
         _Refraction ("Refraction (Pixels)", Range(0, 12)) = 2.5
+        _LensStrength ("Lens Refraction Strength", Range(0, 0.35)) = 0.08
+        _LensPower ("Lens Superellipse Power", Range(2, 16)) = 8
         _Diffraction ("RGB Diffraction (Pixels)", Range(0, 4)) = 0.8
         _BlurRadius ("Blur Radius (Pixels)", Range(0, 16)) = 4
         _BlurStrength ("Blur Strength", Range(0, 1)) = 0.72
@@ -103,6 +105,8 @@ Shader "UI/URP Frosted Glass Diffraction"
                 half _Inset;
                 half _BorderWidth;
                 half _Refraction;
+                half _LensStrength;
+                half _LensPower;
                 half _Diffraction;
                 half _BlurRadius;
                 half _BlurStrength;
@@ -178,6 +182,18 @@ Shader "UI/URP Frosted Glass Diffraction"
 
                 float2 screenUV = input.screenPos.xy / input.screenPos.w;
                 float depth = saturate(-sdf / max(_CornerRadius, 1.0));
+                float2 normalizedBox = abs(p) / max(halfSize, float2(1.0, 1.0));
+                float superellipse = pow(saturate(normalizedBox.x), _LensPower)
+                                   + pow(saturate(normalizedBox.y), _LensPower);
+                float lensEdge = smoothstep(0.05, 1.0, saturate(superellipse));
+
+                // Adapted from the Shadertoy lens formulation: scale the sampled
+                // screen UV around this UI rectangle's center. The eighth-power
+                // superellipse keeps the lens field rectangular with soft corners.
+                float2 panelCenterUV = screenUV - (input.uv - 0.5) * rectSize / _ScreenParams.xy;
+                float lensScale = 1.0 - _LensStrength * lensEdge;
+                float2 lensUV = panelCenterUV + (screenUV - panelCenterUV) * lensScale;
+
                 float2 radialNormal = normalize(p + float2(1e-4, 1e-4));
                 float2 alphaGradient = float2(ddx(bakedSprite.a), ddy(bakedSprite.a));
                 float gradientWeight = saturate(dot(abs(alphaGradient), float2(64.0, 64.0)));
@@ -185,7 +201,7 @@ Shader "UI/URP Frosted Glass Diffraction"
                 float2 refractNormal = normalize(lerp(radialNormal, edgeNormal, gradientWeight));
                 float edgeWeight = saturate(depth * 0.45 + gradientWeight);
                 float2 refractOffset = refractNormal * (_Refraction * edgeWeight) / _ScreenParams.xy;
-                float2 refractedUV = clamp(screenUV + refractOffset, 0.001, 0.999);
+                float2 refractedUV = clamp(lensUV + refractOffset, 0.001, 0.999);
 
                 half3 scene = SampleSceneColor(screenUV);
                 half3 blurred = BlurScene(refractedUV, _BlurRadius);

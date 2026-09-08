@@ -37,11 +37,15 @@ Shader 会从 UI UV 的屏幕导数自动计算矩形像素尺寸，因此多个
 - PNG Alpha Mask Softness: 0.02–0.05
 - Baked PNG Overlay: 0.15–0.3
 - Refraction: 1.5–3.5 px
+- Lens Refraction Strength: 0.04–0.12
+- Lens Superellipse Power: 8
 - RGB Diffraction: 0.4–1.0 px
 - Blur Radius: 3–6 px
 - Blur Strength: 0.6–0.8
 
 Shader 使用一次九点模糊和两次色散采样，共 11 次场景颜色采样。移动端可将 Blur Radius 调低到 2–3，并关闭或降低 RGB Diffraction。
+
+透镜折射参考超椭圆 UV 缩放方案：以面板中心为采样中心，使用默认 8 次幂场控制矩形透镜形状，越靠近边缘 UV 收缩越明显。`Refraction` 是边缘像素偏移，`Lens Refraction Strength` 是整体透镜变形，两者可以独立使用。
 
 ## 可拖拽透明 PNG 烘焙器
 

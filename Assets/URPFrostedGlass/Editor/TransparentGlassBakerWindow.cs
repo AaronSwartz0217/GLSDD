@@ -51,6 +51,8 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     bool showShaderPreview;
     float previewEffectOpacity = 0.72f;
     float previewRefraction = 2.5f;
+    float previewLensStrength = 0.08f;
+    float previewLensPower = 8f;
     float previewDiffraction = 0.8f;
     float previewBlurRadius = 4f;
     float previewBlurStrength = 0.72f;
@@ -127,6 +129,8 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
 
             previewEffectOpacity = EditorGUILayout.Slider("效果强度", previewEffectOpacity, 0, 1);
             previewRefraction = EditorGUILayout.Slider("折射", previewRefraction, 0, 12);
+            previewLensStrength = EditorGUILayout.Slider("透镜折射", previewLensStrength, 0, 0.35f);
+            previewLensPower = EditorGUILayout.Slider("透镜形状", previewLensPower, 2, 16);
             previewDiffraction = EditorGUILayout.Slider("RGB 色散", previewDiffraction, 0, 4);
             previewBlurRadius = EditorGUILayout.Slider("模糊半径", previewBlurRadius, 0, 16);
             previewBlurStrength = EditorGUILayout.Slider("模糊强度", previewBlurStrength, 0, 1);
@@ -466,7 +470,16 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
                 Vector2 normal = p.sqrMagnitude > 0.0001f ? p.normalized : Vector2.up;
                 float edgeDistance = Mathf.Clamp01(-sdf / Mathf.Max(radius, 1f));
                 float edgeWeight = 1f - Mathf.SmoothStep(0.05f, 0.8f, edgeDistance);
-                Vector2 refractedUV = screenUV + new Vector2(
+                float normalizedX = Mathf.Abs(p.x) / Mathf.Max(1f, halfSize.x);
+                float normalizedY = Mathf.Abs(p.y) / Mathf.Max(1f, halfSize.y);
+                float superellipse = Mathf.Pow(Mathf.Clamp01(normalizedX), previewLensPower)
+                                   + Mathf.Pow(Mathf.Clamp01(normalizedY), previewLensPower);
+                float lensEdge = SmoothStep(0.05f, 1f, Mathf.Clamp01(superellipse));
+                Vector2 panelCenterUV = new Vector2(
+                    (glassRect.center.x - workspace.x) / Mathf.Max(1f, workspace.width),
+                    1f - (glassRect.center.y - workspace.y) / Mathf.Max(1f, workspace.height));
+                Vector2 lensUV = panelCenterUV + (screenUV - panelCenterUV) * (1f - previewLensStrength * lensEdge);
+                Vector2 refractedUV = lensUV + new Vector2(
                     normal.x * previewRefraction * edgeWeight * screenPixelU,
                     normal.y * previewRefraction * edgeWeight * screenPixelV);
 

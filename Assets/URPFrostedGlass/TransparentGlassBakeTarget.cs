@@ -27,6 +27,8 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
     [InspectorName("Shader Effect Strength")]
     [Range(0, 1)] public float shaderEffectOpacity = 0.72f;
     [Range(0, 12)] public float shaderRefraction = 2.5f;
+    [Range(0, 0.35f)] public float shaderLensStrength = 0.08f;
+    [Range(2, 16)] public float shaderLensPower = 8f;
     [Range(0, 4)] public float shaderDiffraction = 0.8f;
     [Range(0, 16)] public float shaderBlurRadius = 4f;
     [Range(0, 1)] public float shaderBlurStrength = 0.72f;
@@ -142,6 +144,8 @@ public sealed class TransparentGlassBakeTarget : MonoBehaviour
         shaderPreviewMaterial.SetFloat("_CornerRadius", cornerRadius);
         shaderPreviewMaterial.SetFloat("_BorderWidth", borderWidth);
         shaderPreviewMaterial.SetFloat("_Refraction", shaderRefraction);
+        shaderPreviewMaterial.SetFloat("_LensStrength", shaderLensStrength);
+        shaderPreviewMaterial.SetFloat("_LensPower", shaderLensPower);
         shaderPreviewMaterial.SetFloat("_Diffraction", shaderDiffraction);
         shaderPreviewMaterial.SetFloat("_BlurRadius", shaderBlurRadius);
         shaderPreviewMaterial.SetFloat("_BlurStrength", shaderBlurStrength);
