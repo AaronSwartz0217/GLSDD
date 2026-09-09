@@ -69,6 +69,7 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
     bool previewBackdropDirty = true;
     bool previewDirty = true;
     Vector2 toolbarScroll;
+    int selectedPresetIndex;
 
     [MenuItem("Tools/URP Frosted Glass/Transparent PNG Baker")]
     static void Open()
@@ -77,6 +78,12 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         window.titleContent = new GUIContent("Glass PNG Baker");
         window.minSize = new Vector2(860, 600);
         window.Show();
+    }
+
+    void OnEnable()
+    {
+        GlassUIPresetIO.EnsurePresetLibrary();
+        GlassUIPresetIO.RefreshLibrary();
     }
 
     void OnDisable()
@@ -179,11 +186,16 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
         }
 
         EditorGUILayout.Space(8);
-        EditorGUILayout.LabelField("参数预设", EditorStyles.boldLabel);
+        GlassUIPresetIO.DrawLibrary(
+            ref selectedPresetIndex,
+            CapturePreset,
+            ApplyPreset,
+            "FrostedGlassPreset");
+
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("保存当前预设", GUILayout.Height(30)))
+        if (GUILayout.Button("导出预设 JSON", GUILayout.Height(26)))
             GlassUIPresetIO.Save(CapturePreset(), "FrostedGlassPreset");
-        if (GUILayout.Button("读取预设", GUILayout.Height(30)) && GlassUIPresetIO.Load(out GlassUIBakerPreset preset))
+        if (GUILayout.Button("读取但不安装", GUILayout.Height(26)) && GlassUIPresetIO.Load(out GlassUIBakerPreset preset))
             ApplyPreset(preset);
         EditorGUILayout.EndHorizontal();
 
