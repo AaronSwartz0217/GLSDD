@@ -8,7 +8,7 @@ An editable Unity 2022.3 / URP 14 toolset for creating rounded, true-alpha glass
 - Dedicated `GlassUIBaker` scene
 - Scene-view `RectTransform` workflow
 - Resizable editor baker window with edge/corner mouse cursors
-- True RGBA PNG export
+- True RGBA PNG export to any filesystem folder; files saved under the current project's `Assets/` are still imported as Unity Sprites automatically
 - Fill opacity, border opacity, radius, gloss width/position/angle, highlight, shade and tint controls
 
 ## Install

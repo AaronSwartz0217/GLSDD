@@ -336,49 +336,19 @@ public sealed class TransparentGlassBakerWindow : EditorWindow
 
     void BakeAndSave()
     {
-        const string bakedFolder = "Assets/SHADER/URPFrostedGlass/Baked";
-        EnsureAssetFolder(bakedFolder);
-        string path = EditorUtility.SaveFilePanelInProject(
-            "保存透明毛玻璃 PNG",
-            "TransparentGlassPanel",
-            "png",
-            "请选择 Assets 内的保存位置",
-            bakedFolder);
+        string path = GlassPNGExportIO.SelectSavePath("TransparentGlassPanel");
 
         if (string.IsNullOrEmpty(path))
             return;
 
         Texture2D result = RenderGlass(outputWidth, outputHeight);
-        File.WriteAllBytes(Path.GetFullPath(path), result.EncodeToPNG());
-        DestroyImmediate(result);
-        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-
-        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
-        if (importer != null)
+        try
         {
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
-            importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = false;
-            importer.wrapMode = TextureWrapMode.Clamp;
-            importer.SaveAndReimport();
+            GlassPNGExportIO.Save(result, path);
         }
-
-        Object asset = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-        Selection.activeObject = asset;
-        EditorGUIUtility.PingObject(asset);
-        Debug.Log($"Baked true-alpha glass PNG: {path} ({outputWidth}x{outputHeight})");
-    }
-
-    static void EnsureAssetFolder(string path)
-    {
-        string current = "Assets";
-        foreach (string part in path.Substring("Assets/".Length).Split('/'))
+        finally
         {
-            string next = current + "/" + part;
-            if (!AssetDatabase.IsValidFolder(next))
-                AssetDatabase.CreateFolder(current, part);
-            current = next;
+            DestroyImmediate(result);
         }
     }
 

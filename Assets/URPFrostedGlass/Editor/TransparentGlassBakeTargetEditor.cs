@@ -65,51 +65,97 @@ public sealed class TransparentGlassBakeTargetEditor : Editor
 
     static void Bake(TransparentGlassBakeTarget settings)
     {
-        const string bakedFolder = "Assets/SHADER/URPFrostedGlass/Baked";
-        EnsureAssetFolder(bakedFolder);
-        string path = EditorUtility.SaveFilePanelInProject(
-            "保存透明毛玻璃 PNG",
-            settings.gameObject.name,
-            "png",
-            "请选择 Assets 内的保存位置",
-            bakedFolder);
+        string path = GlassPNGExportIO.SelectSavePath(settings.gameObject.name);
 
         if (string.IsNullOrEmpty(path))
             return;
 
         Texture2D texture = TransparentGlassBakeUtility.Render(settings);
-        string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-        File.WriteAllBytes(Path.Combine(projectRoot, path), texture.EncodeToPNG());
-        Object.DestroyImmediate(texture);
-        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-
-        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
-        if (importer != null)
+        try
         {
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
-            importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = false;
-            importer.wrapMode = TextureWrapMode.Clamp;
-            importer.SaveAndReimport();
+            GlassPNGExportIO.Save(texture, path);
         }
+        finally
+        {
+            Object.DestroyImmediate(texture);
+        }
+    }
+}
 
-        Object asset = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-        Selection.activeObject = asset;
-        EditorGUIUtility.PingObject(asset);
-        Debug.Log($"Baked transparent glass PNG: {path}");
+static class GlassPNGExportIO
+{
+    const string LastDirectoryKey = "URPFrostedGlass.LastPNGExportDirectory";
+
+    public static string SelectSavePath(string defaultName)
+    {
+        string directory = EditorPrefs.GetString(LastDirectoryKey, Application.dataPath);
+        if (!Directory.Exists(directory))
+            directory = Application.dataPath;
+
+        return EditorUtility.SaveFilePanel(
+            "保存透明毛玻璃 PNG（可选 Unity 工程外目录）",
+            directory,
+            string.IsNullOrWhiteSpace(defaultName) ? "TransparentGlassPanel" : defaultName,
+            "png");
     }
 
-    static void EnsureAssetFolder(string path)
+    public static void Save(Texture2D texture, string absolutePath)
     {
-        string current = "Assets";
-        foreach (string part in path.Substring("Assets/".Length).Split('/'))
+        if (texture == null)
+            throw new System.ArgumentNullException(nameof(texture));
+        if (string.IsNullOrWhiteSpace(absolutePath))
+            throw new System.ArgumentException("Output path is empty.", nameof(absolutePath));
+
+        absolutePath = Path.GetFullPath(absolutePath);
+        try
         {
-            string next = current + "/" + part;
-            if (!AssetDatabase.IsValidFolder(next))
-                AssetDatabase.CreateFolder(current, part);
-            current = next;
+            File.WriteAllBytes(absolutePath, texture.EncodeToPNG());
+            RememberDirectory(absolutePath);
+
+            string assetPath = FileUtil.GetProjectRelativePath(absolutePath);
+            if (!string.IsNullOrEmpty(assetPath))
+                assetPath = assetPath.Replace('\\', '/');
+            if (!string.IsNullOrEmpty(assetPath) && assetPath.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase))
+            {
+                ImportAsSprite(assetPath);
+                Object asset = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+                Selection.activeObject = asset;
+                EditorGUIUtility.PingObject(asset);
+                Debug.Log($"Baked true-alpha glass PNG and imported it as a Sprite: {assetPath}");
+            }
+            else
+            {
+                EditorUtility.RevealInFinder(absolutePath);
+                Debug.Log($"Baked true-alpha glass PNG outside the Unity project: {absolutePath}");
+            }
         }
+        catch (System.Exception exception)
+        {
+            Debug.LogException(exception);
+            EditorUtility.DisplayDialog("保存 PNG 失败", exception.Message, "OK");
+        }
+    }
+
+    static void ImportAsSprite(string assetPath)
+    {
+        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+        TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+        if (importer == null)
+            return;
+
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Single;
+        importer.alphaIsTransparency = true;
+        importer.mipmapEnabled = false;
+        importer.wrapMode = TextureWrapMode.Clamp;
+        importer.SaveAndReimport();
+    }
+
+    static void RememberDirectory(string path)
+    {
+        string directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+            EditorPrefs.SetString(LastDirectoryKey, directory);
     }
 }
 
